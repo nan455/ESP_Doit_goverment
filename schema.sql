@@ -21,7 +21,7 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     department VARCHAR(100),
-    role ENUM('admin', 'user') DEFAULT 'user',
+    role ENUM('admin', 'user', 'approver') DEFAULT 'user',
     created_by VARCHAR(100),
     permissions_json TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -723,6 +723,9 @@
             <button class="btn btn-view" onclick="viewData()">
                 <i class="fas fa-search"></i> View Data
             </button>
+            <button class="btn btn-edit btn-sm" onclick="viewData()">
+                <i class="fas fa-edit"></i> Edit Data
+            </button>
         </div>
 
         <div class="divider"></div>
@@ -751,14 +754,16 @@
         <div class="table-container">
             <table class="table">
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Filename</th>
-                        <th>Target Table</th>
-                        <th>Uploaded On</th>
-                        <th style="width: 300px;">Actions</th>
-                    </tr>
-                </thead>
+                            <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Filename</th>
+                            <th>Target Table</th>
+                            <th>Uploaded On</th>
+                            <th>Status</th>
+                            <th style="width: 300px;">Actions</th>
+                        </tr>
+                    </thead>
                 <tbody id="uploadHistory"></tbody>
             </table>
         </div>

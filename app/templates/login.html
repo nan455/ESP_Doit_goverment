@@ -271,55 +271,48 @@
     //     alert("Invalid username or password. Please try again.");
     //   }
     // });
-     document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            console.log('Form submitted');
-            
-            const formData = new FormData(this);
-            const loader = document.getElementById('loaderOverlay');
-            loader.style.display = 'flex';
+  
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
 
-            try {
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    body: formData
-                });
+    const formData = new FormData(this);
+    const loader = document.getElementById('loaderOverlay');
+    loader.style.display = 'flex';
 
-                console.log('Response status:', response.status);
-                console.log('Response redirected:', response.redirected);
-
-                loader.style.display = 'none';
-
-                if (response.redirected) {
-                    console.log('Redirecting to:', response.url);
-                    loader.style.display = 'flex';
-                    setTimeout(() => {
-                        window.location.href = response.url;
-                    }, 500);
-                } else {
-                    const data = await response.json();
-                    console.log('Error data:', data);
-                    showToast(data.message || "Login failed", "error");
-                }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                loader.style.display = 'none';
-                showToast("An error occurred. Please try again.", "error");
-            }
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            body: formData
         });
 
-        function showToast(msg, type="success") {
-            console.log('showToast called with:', msg, type);
-            const d = document.createElement("div");
-            const bgColor = type === "error" ? "#dc2626" : "#16a34a";
-            d.style = `position:fixed;top:20px;right:20px;background:${bgColor};color:#fff;
-            padding:12px 18px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);
-            font-weight:600`;
-            d.innerText = msg;
-            document.body.appendChild(d);
-            console.log('Toast added to body');
-            setTimeout(() => d.remove(), 3000);
+        const data = await response.json();
+        loader.style.display = 'none';
+
+        if (data.success) {
+            loader.style.display = 'flex';
+            setTimeout(() => {
+                window.location.href = data.redirect;  // ✅ KEY LINE
+            }, 500);
+        } else {
+            showToast(data.message || "Invalid username or password", "error");
         }
-  </script>
+    } catch (error) {
+        loader.style.display = 'none';
+        showToast("An error occurred. Please try again.", "error");
+    }
+});
+
+function showToast(msg, type="success") {
+    const d = document.createElement("div");
+    const bgColor = type === "error" ? "#dc2626" : "#16a34a";
+    d.style = `position:fixed;top:20px;right:20px;background:${bgColor};color:#fff;
+    padding:12px 18px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    font-weight:600`;
+    d.innerText = msg;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 3000);
+}
+</script>
+
 </body>
 </html>

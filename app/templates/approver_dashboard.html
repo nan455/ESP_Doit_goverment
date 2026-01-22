@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approver Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #1e5a8e;
+            --primary-dark: #14436b;
+            --secondary: #fbbf24;
+            --success: #10b981;
+            --warning: #fbbf24;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --dark: #0c3d5d;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-900: #0f172a;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #1e5a8e;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            color: var(--gray-900);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .logo {
+            height: 100px;
+            width: 100px;
+            object-fit: contain;
+        }
+
+        .header-content {
+            text-align: center;
+        }
+
+        .header-content h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+            cursor: pointer;
+            min-width: 200px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--gray-100);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 2px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            color: white;
+        }
+
+        .stat-pending .stat-icon { background: #fbbf24; }
+        .stat-approved .stat-icon { background: #10b981; }
+        .stat-rejected .stat-icon { background: #ef4444; }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table thead {
+            background: var(--dark);
+        }
+
+        .table thead th {
+            padding: 1rem;
+            text-align: center;
+            font-weight: 600;
+            color: white;
+        }
+
+        .table tbody tr {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        .table tbody td {
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .badge {
+            padding: 0.375rem 0.875rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .badge-pending {
+            background: #fed7aa;
+            color: #92400e;
+        }
+
+        .badge-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .action-group {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .input {
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            max-width: 300px;
+        }
+
+        .search-input {
+            padding-left: 2.5rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 0.75rem center;
+            background-size: 1.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/static/images/py_logo.jpeg" alt="Logo" class="logo">
+            
+            <div class="header-content">
+                <h1>DIRECTORATE OF ECONOMICS AND STATISTICS</h1>
+                <h1 style="color: #cc6600;">பொருளாதாரம் மற்றும் புள்ளியியல் இயக்ககம்</h1>
+            </div>
+            
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Approver</div>
+                    <div class="user-role">Approver</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card stat-pending">
+                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value" id="pendingCount">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card stat-approved">
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Approved</div>
+                    <div class="stat-value" id="approvedCount">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card stat-rejected">
+                <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Rejected</div>
+                    <div class="stat-value" id="rejectedCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fas fa-file-alt"></i> Upload Approval Queue
+                </div>
+                <input id="searchUpload" class="input search-input" placeholder="Search uploads..." onkeyup="filterUploads()">
+            </div>
+
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Filename</th>
+                            <th>Table Name</th>
+                            <th>Department</th>
+                            <th>Uploaded By</th>
+                            <th>Uploaded On</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="uploadsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploads = [];
+
+        function showToast(msg, type = "success") {
+            const colors = { success: "#16a34a", error: "#dc2626", warn: "#f59e0b", info: "#2563eb" };
+            const d = document.createElement("div");
+            d.style = `position:fixed;top:20px;right:20px;background:${colors[type]};color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:9999;font-weight:600`;
+            d.innerText = msg;
+            document.body.appendChild(d);
+            setTimeout(() => d.remove(), 3000);
+        }
+
+        function showConfirm(msg, yesFn) {
+            document.body.insertAdjacentHTML("beforeend", `
+                <div id="cfx" style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999">
+                    <div style="background:#fff;padding:22px 26px;border-radius:10px;text-align:center;max-width:400px">
+                        <p style="margin-bottom:16px;font-size:16px">${msg}</p>
+                        <button id="cfxYes" style="margin-right:10px;background:#10b981;color:#fff;padding:8px 20px;border:none;border-radius:6px;cursor:pointer">Yes</button>
+                        <button id="cfxNo" style="padding:8px 20px;border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer">Cancel</button>
+                    </div>
+                </div>`);
+            cfxYes.onclick = () => { document.getElementById("cfx").remove(); yesFn(); };
+            cfxNo.onclick = () => document.getElementById("cfx").remove();
+        }
+
+        async function loadUploads() {
+            try {
+               const res = await fetch('/api/pending_uploads', {
+                    credentials: "include"
+                });
+                uploads = await res.json();
+                
+                const pending = uploads.filter(u => u.status_ === 0).length;
+                const approved = uploads.filter(u => u.status_ === 1).length;
+                const rejected = uploads.filter(u => u.status_ === 2).length;
+                
+                document.getElementById('pendingCount').textContent = pending;
+                document.getElementById('approvedCount').textContent = approved;
+                document.getElementById('rejectedCount').textContent = rejected;
+                
+                renderUploads();
+            } catch (e) {
+                showToast("Failed to load uploads", "error");
+            }
+        }
+
+        function renderUploads() {
+            const tbody = document.getElementById('uploadsTable');
+            
+            if (uploads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:3rem;color:#9ca3af">No uploads found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = uploads.map(u => {
+                let statusBadge = '';
+                if (u.status_ === 0) {
+                    statusBadge = '<span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>';
+                } else if (u.status_ === 1) {
+                    statusBadge = '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Approved</span>';
+                } else if (u.status_ === 2) {
+                    statusBadge = '<span class="badge badge-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
+                }
+
+                const actions = u.status_ === 0 ? `
+                    <div class="action-group">
+                        <button class="btn btn-info" onclick="viewUpload(${u.id})">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="btn btn-success" onclick="approveUpload(${u.id})">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button class="btn btn-danger" onclick="rejectUpload(${u.id})">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                ` : `
+                    <button class="btn btn-info" onclick="viewUpload(${u.id})">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                `;
+
+                return `
+                    <tr>
+                        <td><strong>${u.id}</strong></td>
+                        <td>${u.filename}</td>
+                        <td>${u.table_name}</td>
+                        <td>${u.department}</td>
+                        <td>${u.uploaded_by}</td>
+                        <td>${new Date(u.uploaded_on).toLocaleString()}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function approveUpload(id) {
+            showConfirm("Approve this upload?", async () => {
+                try {
+                    const res = await fetch('/api/approve_upload', {
+                    method: 'POST',
+                    credentials: "include",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ upload_id: id })
+                });
+
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        showToast(data.message, "success");
+                        loadUploads();
+                    } else {
+                        showToast(data.error || "Failed to approve", "error");
+                    }
+                } catch (e) {
+                    showToast("Failed to approve upload", "error");
+                }
+            });
+        }
+
+        async function rejectUpload(id) {
+            showConfirm("Reject this upload?", async () => {
+                try {
+                    const res = await fetch('/api/reject_upload', {
+                    method: 'POST',
+                    credentials: "include",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ upload_id: id })
+                });
+
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        showToast(data.message, "success");
+                        loadUploads();
+                    } else {
+                        showToast(data.error || "Failed to reject", "error");
+                    }
+                } catch (e) {
+                    showToast("Failed to reject upload", "error");
+                }
+            });
+        }
+
+        function viewUpload(id) {
+            const upload = uploads.find(u => u.id === id);
+            if (upload) {
+                window.open(`/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=view`, '_blank');
+            }
+        }
+
+        function filterUploads() {
+            const q = document.getElementById("searchUpload").value.toLowerCase();
+            document.querySelectorAll("#uploadsTable tr").forEach(tr => {
+                const text = tr.textContent.toLowerCase();
+                tr.style.display = text.includes(q) ? "" : "none";
+            });
+        }
+
+        async function loadCurrentUser() {
+            try {
+                
+                const res = await fetch('/api/current_user', {
+                    credentials: "include"
+                });
+                const user = await res.json();
+                
+                if (user.username) {
+                    document.getElementById('userName').textContent = user.username;
+                    document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                }
+            } catch (e) {
+                console.error("Failed to load user", e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadCurrentUser();
+            loadUploads();
+        });
+    </script>
+</body>
+</html>

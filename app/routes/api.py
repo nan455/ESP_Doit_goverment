@@ -436,4 +436,42 @@ def api_delete_excel_row(cursor, conn):
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         conn.rollback()
         return jsonify({"error": str(e)}), 500
+    
 
+
+@api_bp.route("/uploads")
+@with_db_connection
+def get_uploads(cursor, conn):
+    """Get uploads for current user's department."""
+    try:
+        department = session.get("department")
+        role = session.get("role")
+        
+        if role == "admin":
+            # Admin sees all uploads
+            cursor.execute("""
+                SELECT id, filename, table_name, uploaded_by, department, 
+                       uploaded_on, status_
+                FROM excel_uploads 
+                ORDER BY uploaded_on DESC
+            """)
+        else:
+            # Users see only their department's uploads
+            cursor.execute("""
+                SELECT id, filename, table_name, uploaded_by, department, 
+                       uploaded_on, status_
+                FROM excel_uploads 
+                WHERE department = %s 
+                ORDER BY uploaded_on DESC
+            """, (department,))
+        
+        uploads = cursor.fetchall()
+        return jsonify(uploads)
+    except Exception as e:
+        tb = traceback.format_exc()
+        config_obj = current_app.config.get("CONFIG_OBJ")
+        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        return jsonify({"error": str(e)}), 500
+
+
+        return jsonify({"error": str(e)}), 500
