@@ -1,4 +1,4 @@
-"""Authentication routes - Debug Version."""
+"""Authentication routes - FIXED SESSION VERSION."""
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 import traceback
@@ -16,7 +16,7 @@ def login_page():
 @auth_bp.route("/login", methods=["POST"])
 @with_db_connection
 def login(cursor, conn):
-    """Handle user login."""
+    """Handle user login - FIXED SESSION."""
     try:
         username = request.form.get("username")
         password = request.form.get("password")
@@ -27,6 +27,7 @@ def login(cursor, conn):
                 "message": "Username and password are required"
             }), 400
 
+        # ✅ CRITICAL: Fetch user from database
         cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
         user = cursor.fetchone()
 
@@ -42,61 +43,46 @@ def login(cursor, conn):
                 "message": "Invalid username or password"
             }), 401
 
-        # Set session data
+        # ✅ CRITICAL FIX: Clear session and set correct user data
         session.clear()
-        session["username"] = user["username"]
-        session["user_id"] = user["id"]
-        session["department"] = user.get("department", "")
-        session["role"] = user.get("role", "user")
-        session["email"] = user.get("email", "")
         session.permanent = True
         
-        # Print available endpoints for debugging
-        print("\n=== AVAILABLE ENDPOINTS ===")
-        for rule in current_app.url_map.iter_rules():
-            print(f"{rule.endpoint}: {rule.rule}")
-        print("=========================\n")
+        # ✅ Set session data from DATABASE user object
+        session["user_id"] = user["id"]
+        session["username"] = user["username"]
+        session["department"] = user.get("department", "")
+        session["role"] = user.get("role", "user")
+        
+        # ✅ DEBUG: Print what we're setting
+        print("\n" + "="*50)
+        print("✅ LOGIN SUCCESS - SESSION DATA SET:")
+        print(f"   User ID: {session['user_id']}")
+        print(f"   Username: {session['username']}")
+        print(f"   Department: {session['department']}")
+        print(f"   Role: {session['role']}")
+        print("="*50 + "\n")
         
         # Determine redirect URL based on role
         role = session["role"]
-        print(f"User role: {role}")
         
-        try:
-            if role == "admin":
-                redirect_url = url_for("admin.admin_dashboard")
-                print(f"Admin redirect: {redirect_url}")
-            elif role == "approver":
-                # Try to build the URL and catch any errors
-                try:
-                    redirect_url = url_for("approver.approver_dashboard")
-                    print(f"Approver redirect: {redirect_url}")
-                except Exception as e:
-                    print(f"Error building approver URL: {e}")
-                    # Fallback to direct path if url_for fails
-                    redirect_url = "/approver_dashboard"
-                    print(f"Using fallback redirect: {redirect_url}")
-            else:
-                redirect_url = url_for("data.user_dashboard")
-                print(f"User redirect: {redirect_url}")
-        except Exception as e:
-            print(f"URL building error: {e}")
-            # Fallback redirects
-            if role == "admin":
-                redirect_url = "/admin_dashboard"
-            elif role == "approver":
-                redirect_url = "/approver_dashboard"
-            else:
-                redirect_url = "/user_dashboard"
+        if role == "admin":
+            redirect_url = url_for("admin.admin_dashboard")
+        elif role == "approver":
+            redirect_url = url_for("approver.approver_dashboard")
+        else:
+            redirect_url = url_for("data.user_dashboard")
         
         return jsonify({
             "success": True,
             "redirect": redirect_url,
-            "role": role
+            "role": role,
+            "username": session["username"],
+            "department": session["department"]
         }), 200
             
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"Login error: {e}")
+        print(f"❌ Login error: {e}")
         print(tb)
         config_obj = current_app.config.get("CONFIG_OBJ")
         if config_obj:
@@ -112,6 +98,7 @@ def login(cursor, conn):
 @auth_bp.route("/logout", methods=["GET", "POST"])
 def logout():
     """Handle user logout."""
+    print(f"🔓 User {session.get('username')} logging out...")
     session.clear()
     return redirect(url_for("auth.login_page"))
 
@@ -121,16 +108,27 @@ def get_current_user():
     """Get current logged-in user information."""
     try:
         if "username" not in session:
+            print("❌ No username in session")
             return jsonify({"error": "Not authenticated"}), 401
         
+        # ✅ DEBUG: Print what's in session
+        print("\n" + "="*50)
+        print("📋 CURRENT SESSION DATA:")
+        print(f"   User ID: {session.get('user_id')}")
+        print(f"   Username: {session.get('username')}")
+        print(f"   Department: {session.get('department')}")
+        print(f"   Role: {session.get('role')}")
+        print("="*50 + "\n")
+        
         return jsonify({
+            "user_id": session.get("user_id"),
             "username": session.get("username"),
             "role": session.get("role", "user"),
             "department": session.get("department", ""),
-            "email": session.get("email", ""),
-            "user_id": session.get("user_id")
+            "email": session.get("email", "")
         })
     except Exception as e:
+        print(f"❌ Error in get_current_user: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -181,3 +179,18 @@ def change_password(cursor, conn):
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         
         return jsonify({"error": "Failed to change password. Please try again."}), 500
+
+
+# ✅ NEW: Debug endpoint to check session
+@auth_bp.route("/api/debug_session", methods=["GET"])
+def debug_session():
+    """Debug endpoint to see what's in session."""
+    return jsonify({
+        "session_keys": list(session.keys()),
+        "user_id": session.get("user_id"),
+        "username": session.get("username"),
+        "department": session.get("department"),
+        "role": session.get("role"),
+        "email": session.get("email"),
+        "full_session": dict(session)
+    })

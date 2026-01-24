@@ -5,6 +5,7 @@ import os
 from app.config import config
 from app.routes import auth, admin, api, data
 from app.utils.database import get_db_connection
+from app.routes.approver import approver_bp
 
 
 def create_app(config_name=None):
@@ -34,6 +35,7 @@ def create_app(config_name=None):
     app.register_blueprint(admin.admin_bp)
     app.register_blueprint(api.api_bp)
     app.register_blueprint(data.data_bp)
+    app.register_blueprint(approver_bp)
     
     # Set up custom JSON encoder
     from app.routes.api import CustomJSONEncoder

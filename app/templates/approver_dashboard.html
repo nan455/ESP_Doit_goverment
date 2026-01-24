@@ -77,6 +77,7 @@
             line-height: 1.4;
         }
 
+        /* User Dropdown Styles */
         .user-info {
             display: flex;
             align-items: center;
@@ -86,7 +87,14 @@
             border-radius: 8px;
             border: 1px solid var(--gray-200);
             cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
             min-width: 200px;
+        }
+
+        .user-info:hover {
+            background: var(--gray-100);
+            border-color: var(--gray-300);
         }
 
         .user-avatar {
@@ -99,20 +107,125 @@
             justify-content: center;
             color: white;
             font-weight: 700;
+            font-size: 1.125rem;
+            flex-shrink: 0;
         }
 
         .user-details {
+            display: flex;
+            flex-direction: column;
             flex: 1;
         }
 
         .user-name {
             font-weight: 600;
+            color: var(--gray-900);
             font-size: 0.875rem;
         }
 
         .user-role {
             font-size: 0.75rem;
             color: var(--gray-600);
+        }
+
+        .dropdown-icon {
+            color: var(--gray-600);
+            font-size: 0.75rem;
+            transition: transform 0.2s;
+        }
+
+        .user-info.active .dropdown-icon {
+            transform: rotate(180deg);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--gray-200);
+            min-width: 280px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .user-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .dropdown-header {
+            padding: 1.25rem;
+            border-bottom: 2px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .dropdown-header .user-avatar {
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+        }
+
+        .dropdown-header-info h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.25rem;
+        }
+
+        .dropdown-header-info p {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+        }
+
+        .dropdown-menu {
+            padding: 0.5rem;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            color: var(--gray-700);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .dropdown-item:hover {
+            background: var(--gray-50);
+            color: var(--gray-900);
+        }
+
+        .dropdown-item i {
+            width: 1.25rem;
+            font-size: 1rem;
+        }
+
+        .dropdown-item.logout {
+            color: var(--danger);
+            border-top: 1px solid var(--gray-100);
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-item.logout:hover {
+            background: #fee2e2;
         }
 
         .card {
@@ -301,6 +414,114 @@
             background-position: 0.75rem center;
             background-size: 1.25rem;
         }
+
+        /* Profile Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--gray-100);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid var(--gray-100);
+        }
+
+        .profile-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .profile-row span {
+            color: var(--gray-600);
+            font-size: 14px;
+        }
+
+        .profile-row strong {
+            color: var(--gray-900);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.875rem;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--gray-700);
+            border: 2px solid var(--gray-300);
+        }
+
+        .btn-ghost:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .btn-primary {
+            background: var(--secondary);
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        @media (max-width: 968px) {
+            .header {
+                grid-template-columns: auto 1fr;
+                gap: 1rem;
+            }
+
+            .header-content {
+                grid-column: 1 / -1;
+            }
+
+            .user-info {
+                grid-column: 1 / -1;
+                justify-self: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -313,11 +534,36 @@
                 <h1 style="color: #cc6600;">பொருளாதாரம் மற்றும் புள்ளியியல் இயக்ககம்</h1>
             </div>
             
-            <div class="user-info">
+            <div class="user-info" onclick="toggleUserDropdown()">
                 <div class="user-avatar" id="userAvatar">A</div>
                 <div class="user-details">
                     <div class="user-name" id="userName">Approver</div>
-                    <div class="user-role">Approver</div>
+                    <div class="user-role" id="userRole">Approver</div>
+                </div>
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+                
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dropdown-header">
+                        <div class="user-avatar" id="dropdownAvatar">A</div>
+                        <div class="dropdown-header-info">
+                            <h4 id="dropdownUserName">Approver</h4>
+                            <p id="dropdownUserRole">Approver</p>
+                        </div>
+                    </div>
+                    <div class="dropdown-menu">
+                        <button class="dropdown-item" onclick="viewProfile(); event.stopPropagation();">
+                            <i class="fas fa-user-circle"></i>
+                            <span>View Profile</span>
+                        </button>
+                        <button class="dropdown-item" onclick="openChangePassword(); event.stopPropagation();">
+                            <i class="fas fa-key"></i>
+                            <span>Change Password</span>
+                        </button>
+                        <button class="dropdown-item logout" onclick="logout(); event.stopPropagation();">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -376,8 +622,68 @@
         </div>
     </div>
 
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3 class="modal-title">My Profile</h3>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div class="profile-row">
+                    <span>Username</span>
+                    <strong id="profileUsername"></strong>
+                </div>
+
+                <div class="profile-row">
+                    <span>Department</span>
+                    <strong id="profileDepartment"></strong>
+                </div>
+
+                <div class="profile-row">
+                    <span>Role</span>
+                    <strong id="profileRole"></strong>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeProfileModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Change Password</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input type="password" id="currentPassword" class="input" placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <input type="password" id="newPassword" class="input" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" class="input" placeholder="Confirm new password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeChangePasswordModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitChangePassword()">
+                    <i class="fas fa-save"></i> Update Password
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let uploads = [];
+        let currentUser = {};
 
         function showToast(msg, type = "success") {
             const colors = { success: "#16a34a", error: "#dc2626", warn: "#f59e0b", info: "#2563eb" };
@@ -401,16 +707,145 @@
             cfxNo.onclick = () => document.getElementById("cfx").remove();
         }
 
+        async function loadCurrentUser() {
+            try {
+                const res = await fetch('/api/profile', { credentials: 'include' });
+                const user = await res.json();
+                currentUser = user;
+                
+                if (user.username) {
+                    const initial = user.username.charAt(0).toUpperCase();
+                    document.getElementById('userName').textContent = user.username;
+                    document.getElementById('userRole').textContent = user.role || 'Approver';
+                    document.getElementById('userAvatar').textContent = initial;
+                    document.getElementById('dropdownAvatar').textContent = initial;
+                    document.getElementById('dropdownUserName').textContent = user.username;
+                    document.getElementById('dropdownUserRole').textContent = user.role || 'Approver';
+                }
+            } catch (e) {
+                console.error("Failed to load user", e);
+            }
+        }
+
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('userDropdown');
+            const userInfo = document.querySelector('.user-info');
+            
+            if (dropdown) {
+                dropdown.classList.toggle('active');
+                userInfo.classList.toggle('active');
+            }
+        }
+
+        document.addEventListener('click', function(event) {
+            const userInfo = document.querySelector('.user-info');
+            const dropdown = document.getElementById('userDropdown');
+            
+            if (dropdown && !userInfo?.contains(event.target)) {
+                dropdown.classList.remove('active');
+                userInfo?.classList.remove('active');
+            }
+        });
+
+        function viewProfile() {
+            document.getElementById('userDropdown').classList.remove('active');
+            document.querySelector('.user-info').classList.remove('active');
+            
+            document.getElementById("profileUsername").innerText = currentUser.username || '-';
+            document.getElementById("profileDepartment").innerText = currentUser.department || '-';
+            document.getElementById("profileRole").innerText = currentUser.role || '-';
+
+            document.getElementById("profileModal").classList.add("active");
+        }
+
+        function closeProfileModal() {
+            document.getElementById("profileModal").classList.remove("active");
+        }
+
+        function openChangePassword() {
+            const dropdown = document.getElementById('userDropdown');
+            if (dropdown) dropdown.classList.remove('active');
+            document.querySelector('.user-info')?.classList.remove('active');
+            
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) modal.classList.remove('active');
+            
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        }
+
+        async function submitChangePassword() {
+            const currentPassword = document.getElementById('currentPassword')?.value;
+            const newPassword = document.getElementById('newPassword')?.value;
+            const confirmPassword = document.getElementById('confirmPassword')?.value;
+
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                return showToast('Please fill in all fields', 'error');
+            }
+
+            if (newPassword !== confirmPassword) {
+                return showToast('New passwords do not match', 'error');
+            }
+
+            if (newPassword.length < 6) {
+                return showToast('Password must be at least 6 characters long', 'error');
+            }
+
+            try {
+                const res = await fetch('/api/change_password', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    showToast(data.message || 'Password changed successfully!', 'success');
+                    closeChangePasswordModal();
+                } else {
+                    showToast(data.error || "Failed to change password", "error");
+                }
+            } catch (e) {
+                showToast("Failed to change password", "error");
+            }
+        }
+
+        function logout() {
+            const dropdown = document.getElementById('userDropdown');
+            if (dropdown) dropdown.classList.remove('active');
+            document.querySelector('.user-info')?.classList.remove('active');
+            
+            showConfirm("Are you sure you want to logout?", () => {
+                window.location.href = '/logout';
+            });
+        }
+
         async function loadUploads() {
             try {
-               const res = await fetch('/api/pending_uploads', {
+                const res = await fetch('/api/pending_uploads', {
                     credentials: "include"
                 });
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                
                 uploads = await res.json();
                 
-                const pending = uploads.filter(u => u.status_ === 0).length;
+                const pending = uploads.filter(u => u.status_ === null || u.status_ === undefined).length;
                 const approved = uploads.filter(u => u.status_ === 1).length;
-                const rejected = uploads.filter(u => u.status_ === 2).length;
+                const rejected = uploads.filter(u => u.status_ === 0).length;
                 
                 document.getElementById('pendingCount').textContent = pending;
                 document.getElementById('approvedCount').textContent = approved;
@@ -418,7 +853,8 @@
                 
                 renderUploads();
             } catch (e) {
-                showToast("Failed to load uploads", "error");
+                console.error("Failed to load uploads:", e);
+                showToast("Failed to load uploads: " + e.message, "error");
             }
         }
 
@@ -432,18 +868,21 @@
 
             tbody.innerHTML = uploads.map(u => {
                 let statusBadge = '';
-                if (u.status_ === 0) {
+                if (u.status_ === null || u.status_ === undefined) {
                     statusBadge = '<span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>';
                 } else if (u.status_ === 1) {
                     statusBadge = '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Approved</span>';
-                } else if (u.status_ === 2) {
+                } else if (u.status_ === 0) {
                     statusBadge = '<span class="badge badge-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
                 }
 
-                const actions = u.status_ === 0 ? `
+               const actions = (u.status_ === null || u.status_ === undefined) ? `
                     <div class="action-group">
                         <button class="btn btn-info" onclick="viewUpload(${u.id})">
                             <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="btn btn-warning" onclick="editUpload(${u.id})">
+                            <i class="fas fa-edit"></i> Edit
                         </button>
                         <button class="btn btn-success" onclick="approveUpload(${u.id})">
                             <i class="fas fa-check"></i> Approve
@@ -453,110 +892,162 @@
                         </button>
                     </div>
                 ` : `
-                    <button class="btn btn-info" onclick="viewUpload(${u.id})">
-                        <i class="fas fa-eye"></i> View
-                    </button>
+                    <div class="action-group">
+                        <button class="btn btn-info" onclick="viewUpload(${u.id})">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="btn btn-warning" onclick="editUpload(${u.id})">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </div>
                 `;
-
-                return `
-                    <tr>
-                        <td><strong>${u.id}</strong></td>
-                        <td>${u.filename}</td>
-                        <td>${u.table_name}</td>
-                        <td>${u.department}</td>
-                        <td>${u.uploaded_by}</td>
-                        <td>${new Date(u.uploaded_on).toLocaleString()}</td>
-                        <td>${statusBadge}</td>
-                        <td>${actions}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        async function approveUpload(id) {
-            showConfirm("Approve this upload?", async () => {
-                try {
-                    const res = await fetch('/api/approve_upload', {
-                    method: 'POST',
-                    credentials: "include",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ upload_id: id })
-                });
-
-                    const data = await res.json();
                     
-                    if (res.ok) {
-                        showToast(data.message, "success");
-                        loadUploads();
-                    } else {
-                        showToast(data.error || "Failed to approve", "error");
-                    }
-                } catch (e) {
-                    showToast("Failed to approve upload", "error");
-                }
-            });
-        }
+               return `
+                <tr>
+                    <td><strong>${u.id}</strong></td>
+                    <td>${escapeHtml(u.filename)}</td>
+                    <td>${escapeHtml(u.table_name)}</td>
+                    <td>${escapeHtml(u.department)}</td>
+                    <td>${escapeHtml(u.uploaded_by)}</td>
+                    <td>${new Date(u.uploaded_on).toLocaleString()}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actions}</td>
+                </tr>
+            `;
+        }).join('');
+    }
 
-        async function rejectUpload(id) {
-            showConfirm("Reject this upload?", async () => {
-                try {
-                    const res = await fetch('/api/reject_upload', {
-                    method: 'POST',
-                    credentials: "include",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ upload_id: id })
-                });
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 
-                    const data = await res.json();
-                    
-                    if (res.ok) {
-                        showToast(data.message, "success");
-                        loadUploads();
-                    } else {
-                        showToast(data.error || "Failed to reject", "error");
-                    }
-                } catch (e) {
-                    showToast("Failed to reject upload", "error");
-                }
-            });
-        }
-
-        function viewUpload(id) {
-            const upload = uploads.find(u => u.id === id);
-            if (upload) {
-                window.open(`/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=view`, '_blank');
-            }
-        }
-
-        function filterUploads() {
-            const q = document.getElementById("searchUpload").value.toLowerCase();
-            document.querySelectorAll("#uploadsTable tr").forEach(tr => {
-                const text = tr.textContent.toLowerCase();
-                tr.style.display = text.includes(q) ? "" : "none";
-            });
-        }
-
-        async function loadCurrentUser() {
+    async function approveUpload(id) {
+        showConfirm("Approve this upload?", async () => {
             try {
-                
-                const res = await fetch('/api/current_user', {
-                    credentials: "include"
+                const res = await fetch('/api/approve_upload', {
+                    method: 'POST',
+                    credentials: "include",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ upload_id: id })
                 });
-                const user = await res.json();
+
+                const data = await res.json();
                 
-                if (user.username) {
-                    document.getElementById('userName').textContent = user.username;
-                    document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                if (res.ok) {
+                    showToast(data.message, "success");
+                    loadUploads();
+                } else {
+                    showToast(data.error || "Failed to approve", "error");
                 }
             } catch (e) {
-                console.error("Failed to load user", e);
+                console.error("Approve error:", e);
+                showToast("Failed to approve upload", "error");
             }
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            loadCurrentUser();
-            loadUploads();
         });
-    </script>
+    }
+
+    async function rejectUpload(id) {
+        showConfirm("Reject this upload?", async () => {
+            try {
+                const res = await fetch('/api/reject_upload', {
+                    method: 'POST',
+                    credentials: "include",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ upload_id: id })
+                });
+
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message, "success");
+                    loadUploads();
+                } else {
+                    showToast(data.error || "Failed to reject", "error");
+                }
+            } catch (e) {
+                console.error("Reject error:", e);
+                showToast("Failed to reject upload", "error");
+            }
+        });
+    }
+
+    function viewUpload(id) {
+        const upload = uploads.find(u => u.id === id);
+        if (upload) {
+            window.open(`/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=view`, '_blank');
+        }
+    }
+
+    function filterUploads() {
+        const q = document.getElementById("searchUpload").value.toLowerCase();
+        document.querySelectorAll("#uploadsTable tr").forEach(tr => {
+            const text = tr.textContent.toLowerCase();
+            tr.style.display = text.includes(q) ? "" : "none";
+        });
+    }
+
+    // Close modals on background click
+    document.getElementById('profileModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'profileModal') closeProfileModal();
+    });
+
+    document.getElementById('changePasswordModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'changePasswordModal') closeChangePasswordModal();
+    });
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        loadCurrentUser();
+        loadUploads();
+    });
+    function editUpload(id) {
+        const upload = uploads.find(u => u.id === id);
+        if (upload) {
+            window.location.href = `/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=edit&upload_id=${id}`;
+        }
+    }
+
+    function viewUpload(id) {
+        const upload = uploads.find(u => u.id === id);
+        if (upload) {
+            window.location.href = `/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=view&upload_id=${id}`;
+        }
+    }
+
+    function filterUploads() {
+        const q = document.getElementById("searchUpload").value.toLowerCase();
+        document.querySelectorAll("#uploadsTable tr").forEach(tr => {
+            const text = tr.textContent.toLowerCase();
+            tr.style.display = text.includes(q) ? "" : "none";
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadCurrentUser();
+        loadUploads();
+    });
+    function viewUpload(id) {
+        const upload = uploads.find(u => u.id === id);
+        if (upload) {
+            window.location.href = `/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=view&upload_id=${id}`;
+        }
+    }
+
+    function filterUploads() {
+        const q = document.getElementById("searchUpload").value.toLowerCase();
+        document.querySelectorAll("#uploadsTable tr").forEach(tr => {
+            const text = tr.textContent.toLowerCase();
+            tr.style.display = text.includes(q) ? "" : "none";
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadCurrentUser();
+        loadUploads();
+    });
+</script>
 </body>
 </html>
+</parameter>

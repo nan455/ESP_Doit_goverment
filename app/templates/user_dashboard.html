@@ -1088,50 +1088,60 @@ async function uploadRegister() {
 /* LOAD HISTORY */
 async function loadUploadHistory() {
     try {
-        const rows = await fetch(`/uploads?department=${encodeURIComponent(department)}`).then(r => r.json());
-
-        const tbody = document.getElementById("uploadHistory");
-        const countBadge = document.getElementById("uploadCount");
+        const rows = await fetch(`/uploads?department=${encodeURIComponent(currentUser.department)}`).then(r => r.json());
         
-        if (countBadge) {
-            countBadge.textContent = `${rows.length} Upload${rows.length !== 1 ? 's' : ''}`;
-        }
+        const tbody = document.getElementById("uploadHistory");
+        document.getElementById("uploadCount").textContent = `${rows.length} Upload${rows.length !== 1 ? 's' : ''}`;
 
         if (!rows || rows.length === 0) {
-            tbody.innerHTML = `
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:#9ca3af">No upload history found</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            // ✅ Status Logic: NULL = Pending, 0 = Rejected, 1 = Approved
+            let statusBadge = '';
+            let canEdit = false;
+            
+            if (r.status_ === null || r.status_ === undefined) {
+                statusBadge = '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>';
+                canEdit = true;  // ✅ Can edit when pending
+            } else if (r.status_ === 1) {
+                statusBadge = '<span class="status-badge status-approved"><i class="fas fa-check-circle"></i> Approved</span>';
+                canEdit = false;  // ✅ Cannot edit when approved
+            } else if (r.status_ === 0) {
+                statusBadge = '<span class="status-badge status-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
+                canEdit = true;  // ✅ Can edit when rejected
+            }
+
+            // ✅ Show Edit button only if status allows
+            const editBtn = canEdit 
+                ? `<button class="btn btn-edit btn-sm" onclick="openEditPage('${escapeJs(r.table_name)}', ${r.id})">
+                       <i class="fas fa-edit"></i> Edit
+                   </button>`
+                : '';
+
+            return `
                 <tr>
-                    <td colspan="5">
-                        <div class="empty-state">
-                            <i class="fas fa-inbox"></i>
-                            <p>No upload history found</p>
+                    <td><strong>${r.id}</strong></td>
+                    <td>${escapeHtml(r.filename)}</td>
+                    <td>${escapeHtml(r.table_name)}</td>
+                    <td>${new Date(r.uploaded_on).toLocaleString()}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div class="action-group">
+                            <button class="btn btn-view btn-sm" onclick="openViewPage('${escapeJs(r.table_name)}', ${r.id})">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            ${editBtn}
+                            <button class="btn btn-danger btn-sm" onclick="deleteUpload(${r.id})">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
                         </div>
                     </td>
                 </tr>
             `;
-            return;
-        }
-
-        tbody.innerHTML = rows.map(r => `
-            <tr>
-                <td><strong>${r.id}</strong></td>
-                <td>${escapeHtml(r.filename)}</td>
-                <td>${escapeHtml(r.table_name)}</td>
-                <td>${new Date(r.uploaded_on).toLocaleString()}</td>
-                <td>
-                    <div class="action-group">
-                        <button class="btn btn-view btn-sm" onclick="openViewPage('${escapeJs(r.table_name)}')">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        <button class="btn btn-edit btn-sm" onclick="openEditPage('${escapeJs(r.table_name)}')">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteUpload(${r.id})">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
+        }).join('');
     } catch (e) {
         console.error("Failed to load upload history", e);
         showToast("Failed to load upload history", "error");

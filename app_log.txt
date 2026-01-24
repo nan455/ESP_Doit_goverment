@@ -1,40 +1,72 @@
-2026-01-22 17:36:04,793 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:36:10,992 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
-2026-01-22 17:36:11,664 - INFO - Requested: GET http://10.65.51.44:5001/user_dashboard from 10.65.51.44
-2026-01-22 17:36:11,700 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
-2026-01-22 17:36:11,710 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
-2026-01-22 17:36:11,726 - INFO - Requested: GET http://10.65.51.44:5001/api/transaction_tables from 10.65.51.44
-2026-01-22 17:36:11,744 - INFO - Requested: GET http://10.65.51.44:5001/uploads?department=Animal%20Husbandry%20and%20Animal%20Welfare from 10.65.51.44
-2026-01-22 17:36:15,305 - INFO - Requested: GET http://10.65.51.44:5001/logout from 10.65.51.44
-2026-01-22 17:36:15,310 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
-2026-01-22 17:36:15,322 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:36:18,336 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
-2026-01-22 17:36:18,996 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:36:35,199 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:36:35,341 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:36:35,460 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:37:04,821 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:37:05,445 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
-2026-01-22 17:37:05,453 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:37:07,647 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
-2026-01-22 17:37:08,296 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:38:33,581 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:38:34,935 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
-2026-01-22 17:38:34,942 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:38:44,224 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
-2026-01-22 17:38:44,898 - INFO - Requested: GET http://10.65.51.44:5001/admin_dashboard from 10.65.51.44
-2026-01-22 17:38:44,927 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
-2026-01-22 17:38:44,941 - INFO - Requested: GET http://10.65.51.44:5001/api/departments from 10.65.51.44
-2026-01-22 17:38:44,955 - INFO - Requested: GET http://10.65.51.44:5001/users from 10.65.51.44
-2026-01-22 17:38:44,969 - INFO - Requested: GET http://10.65.51.44:5001/uploads from 10.65.51.44
-2026-01-22 17:38:44,981 - INFO - Requested: GET http://10.65.51.44:5001/templates from 10.65.51.44
-2026-01-22 17:38:44,992 - INFO - Requested: GET http://10.65.51.44:5001/api/error_logs from 10.65.51.44
-2026-01-22 17:38:45,005 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
-2026-01-22 17:38:51,166 - INFO - Requested: GET http://10.65.51.44:5001/logout from 10.65.51.44
-2026-01-22 17:38:51,172 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
-2026-01-22 17:38:51,179 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:38:56,775 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
-2026-01-22 17:38:57,427 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
-2026-01-22 17:40:18,631 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
-2026-01-22 17:40:21,753 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
-2026-01-22 17:40:22,412 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
+2026-01-24 12:07:15,647 - ERROR - Exception on /logout [GET]
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 915, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1291, in preprocess_request
+    rv = self.ensure_sync(before_func)()
+  File "D:\Code final 2\app\__init__.py", line 43, in log_session_info
+    if request.endpoint and not request.endpoint.startswith('static'):
+       ^^^^^^^
+NameError: name 'request' is not defined
+2026-01-24 12:07:15,797 - ERROR - Exception on /logout [GET]
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 915, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\DELL\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1291, in preprocess_request
+    rv = self.ensure_sync(before_func)()
+  File "D:\Code final 2\app\__init__.py", line 43, in log_session_info
+    if request.endpoint and not request.endpoint.startswith('static'):
+       ^^^^^^^
+NameError: name 'request' is not defined
+2026-01-24 12:08:08,561 - INFO - Requested: GET http://10.65.51.44:5001/logout from 10.65.51.44
+2026-01-24 12:08:08,566 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:08:08,654 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:08:14,899 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
+2026-01-24 12:08:15,589 - INFO - Requested: GET http://10.65.51.44:5001/user_dashboard from 10.65.51.44
+2026-01-24 12:08:15,658 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
+2026-01-24 12:08:15,662 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
+2026-01-24 12:08:15,667 - INFO - Requested: GET http://10.65.51.44:5001/api/transaction_tables from 10.65.51.44
+2026-01-24 12:08:15,680 - INFO - Requested: GET http://10.65.51.44:5001/uploads?department=undefined from 10.65.51.44
+2026-01-24 12:09:11,082 - INFO - Requested: GET http://10.65.51.44:5001/logout from 10.65.51.44
+2026-01-24 12:09:11,088 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:09:11,096 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:09:11,936 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:09:11,942 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:09:16,898 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
+2026-01-24 12:09:17,531 - INFO - Requested: GET http://10.65.51.44:5001/user_dashboard from 10.65.51.44
+2026-01-24 12:09:17,539 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
+2026-01-24 12:09:17,542 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
+2026-01-24 12:09:17,545 - INFO - Requested: GET http://10.65.51.44:5001/api/transaction_tables from 10.65.51.44
+2026-01-24 12:09:17,557 - INFO - Requested: GET http://10.65.51.44:5001/uploads?department=undefined from 10.65.51.44
+2026-01-24 12:09:33,956 - INFO - Requested: GET http://10.65.51.44:5001/logout from 10.65.51.44
+2026-01-24 12:09:33,961 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:09:33,976 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:09:35,215 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:09:35,224 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:09:39,226 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
+2026-01-24 12:09:39,907 - INFO - Requested: GET http://10.65.51.44:5001/user_dashboard from 10.65.51.44
+2026-01-24 12:09:39,922 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
+2026-01-24 12:09:39,925 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
+2026-01-24 12:09:39,928 - INFO - Requested: GET http://10.65.51.44:5001/api/transaction_tables from 10.65.51.44
+2026-01-24 12:09:39,939 - INFO - Requested: GET http://10.65.51.44:5001/uploads?department=undefined from 10.65.51.44
+2026-01-24 12:10:03,089 - INFO - Requested: GET http://10.65.51.44:5001/logout from 10.65.51.44
+2026-01-24 12:10:03,094 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:10:03,107 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:10:03,950 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:10:03,958 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:10:04,326 - INFO - Requested: GET http://10.65.51.44:5001/ from 10.65.51.44
+2026-01-24 12:10:04,334 - INFO - Requested: GET http://10.65.51.44:5001/static/logo_sts.png from 10.65.51.44
+2026-01-24 12:10:08,665 - INFO - Requested: POST http://10.65.51.44:5001/login from 10.65.51.44
+2026-01-24 12:10:09,334 - INFO - Requested: GET http://10.65.51.44:5001/user_dashboard from 10.65.51.44
+2026-01-24 12:10:09,368 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
+2026-01-24 12:10:09,370 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
+2026-01-24 12:10:09,376 - INFO - Requested: GET http://10.65.51.44:5001/api/transaction_tables from 10.65.51.44
+2026-01-24 12:10:09,391 - INFO - Requested: GET http://10.65.51.44:5001/uploads?department=IT from 10.65.51.44

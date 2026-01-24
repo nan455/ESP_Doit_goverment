@@ -751,12 +751,15 @@
         }
 
         function goBack() {
-            fetch("/api/profile")
-                .then(r => r.json())
-                .then(u => window.location.href = u.role === "admin" ? "/admin_dashboard" : "/user_dashboard")
-                .catch(() => window.location.href = "/user_dashboard");
-        }
-
+    fetch("/api/profile")
+        .then(r => r.json())
+        .then(u => window.location.href =
+            u.role === "admin" ? "/admin_dashboard" :
+            u.role === "approver" ? "/approver_dashboard" :
+            "/user_dashboard"
+        )
+        .catch(() => window.location.href = "/user_dashboard");
+}
         function downloadExcel() {
             window.location.href = `/download_excel?table=${tableName}&filename=${tableName}.xlsx`;
         }
