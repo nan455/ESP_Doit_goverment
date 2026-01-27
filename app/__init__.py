@@ -1,71 +1,66 @@
-"""Flask application factory."""
-from flask import Flask
-from flask_cors import CORS
+from flask import Flask, session, request, make_response
+from datetime import timedelta
 import os
-from app.config import config
-from app.routes import auth, admin, api, data
-from app.utils.database import get_db_connection
-from app.routes.approver import approver_bp
+import secrets
 
-
-def create_app(config_name=None):
-    """Create and configure the Flask application."""
-    if config_name is None:
-        config_name = os.environ.get("FLASK_ENV", "default")
+def create_app(config_object=None):
+    """Create Flask app with proper session configuration."""
+    app = Flask(__name__)
     
-    app = Flask(__name__, 
-                template_folder="templates",
-                static_folder="static")
+    # ✅ CRITICAL FIX 1: Unique secret key for each instance
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
     
-    # Load configuration
-    config_class = config.get(config_name, config["default"])
-    app.config.from_object(config_class)
-    app.config["CONFIG_OBJ"] = config_class()
+    # ✅ CRITICAL FIX 2: Session configuration
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_PERMANENT'] = False
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+    # app.config['SESSION_COOKIE_NAME'] = 'esp_session_' + secrets.token_hex(4)  # Unique per restart
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = False
     
-    # Initialize CORS
-    if config_class.CORS_ENABLED:
-        CORS(app)
+    # ✅ Store config object
+    if config_object:
+        app.config['CONFIG_OBJ'] = config_object
     
-    # Create necessary directories
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-    os.makedirs(app.config["TEMPLATE_FOLDER"], exist_ok=True)
+    # ✅ CRITICAL FIX 3: Add response headers to prevent caching
+    @app.after_request
+    def add_header(response):
+        """Add headers to prevent caching of user-specific data."""
+        # Don't cache API responses or HTML pages
+        if not request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+    
+    # ✅ CRITICAL FIX 4: Clear session on any authentication error
+    @app.errorhandler(401)
+    def unauthorized(error):
+        """Clear session on unauthorized access."""
+        session.clear()
+        return make_response({"error": "Unauthorized"}, 401)
     
     # Register blueprints
-    app.register_blueprint(auth.auth_bp)
-    app.register_blueprint(admin.admin_bp)
-    app.register_blueprint(api.api_bp)
-    app.register_blueprint(data.data_bp)
+    from app.routes.auth import auth_bp
+    from app.routes.data import data_bp
+    from app.routes.admin import admin_bp
+    from app.routes.api import api_bp
+    from app.routes.approver import approver_bp
+    
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(data_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(api_bp)
     app.register_blueprint(approver_bp)
     
-    # Set up custom JSON encoder
-    from app.routes.api import CustomJSONEncoder
-    app.json_encoder = CustomJSONEncoder
-    app.json_provider_class = type(
-        "CustomJSONProvider",
-        (app.json_provider_class,),
-        {"default": staticmethod(CustomJSONEncoder().default)},
-    )
-    
-    # Ensure error_logs table exists on startup
-    with app.app_context():
-        try:
-            conn_init = get_db_connection(app.config["CONFIG_OBJ"])
-            cur_init = conn_init.cursor()
-            cur_init.execute("""
-                CREATE TABLE IF NOT EXISTS error_logs (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(150),
-                    endpoint VARCHAR(255),
-                    error_message TEXT,
-                    traceback LONGTEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            conn_init.commit()
-            cur_init.close()
-            conn_init.close()
-        except Exception as e:
-            print("⚠️ Could not create error_logs table:", e)
+    # ✅ Debug middleware (remove in production)
+    @app.before_request
+    def log_session_info():
+        """Log session info for debugging."""
+        if request.endpoint and not request.endpoint.startswith('static'):
+            if 'username' in session:
+                print(f"🔍 {request.method} {request.path} | User: {session.get('username')} | Dept: {session.get('department')}")
     
     return app
-

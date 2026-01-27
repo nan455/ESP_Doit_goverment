@@ -98,7 +98,7 @@ CREATE TABLE tbl_year_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -110,7 +110,7 @@ CREATE TABLE tbl_region_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -122,7 +122,7 @@ CREATE TABLE tbl_unit_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -134,7 +134,7 @@ CREATE TABLE tbl_month_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -150,7 +150,7 @@ CREATE TABLE tbl_accident_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -162,7 +162,7 @@ CREATE TABLE tbl_cog_crime_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -174,7 +174,7 @@ CREATE TABLE tbl_crime_law_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -186,7 +186,7 @@ CREATE TABLE tbl_property_stolen_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -198,7 +198,7 @@ CREATE TABLE tbl_offence_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -210,7 +210,7 @@ CREATE TABLE tbl_offence_head_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -222,7 +222,7 @@ CREATE TABLE tbl_conviction_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -235,7 +235,7 @@ CREATE TABLE tbl_police_station_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (region_id) REFERENCES tbl_region_master(region_id)
 );
@@ -248,7 +248,7 @@ CREATE TABLE tbl_civil_police_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -260,7 +260,7 @@ CREATE TABLE tbl_police_post_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -272,7 +272,7 @@ CREATE TABLE tbl_case_type_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -284,7 +284,7 @@ CREATE TABLE tbl_case_status_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -296,7 +296,7 @@ CREATE TABLE tbl_currency_denom_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -315,7 +315,7 @@ CREATE TABLE tbl_accident_details (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (accident_id) REFERENCES tbl_accident_master(accident_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),
@@ -334,7 +334,7 @@ CREATE TABLE tbl_cogniz_crime (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (cog_crime_id) REFERENCES tbl_cog_crime_master(cog_crime_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),
@@ -353,7 +353,7 @@ CREATE TABLE tbl_crime_law_details (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (crime_law_id) REFERENCES tbl_crime_law_master(crime_law_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),
@@ -372,7 +372,7 @@ CREATE TABLE tbl_stole_recov_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (prop_stolen_id) REFERENCES tbl_property_stolen_master(prop_stolen_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),
@@ -392,7 +392,7 @@ CREATE TABLE tbl_civil_pol_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (civil_pol_id) REFERENCES tbl_civil_police_master(civil_pol_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),
@@ -412,7 +412,7 @@ CREATE TABLE tbl_pol_work_strgth_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (police_stn_id) REFERENCES tbl_police_station_master(police_stn_id),
     FOREIGN KEY (police_post_id) REFERENCES tbl_police_post_master(police_post_id),
@@ -432,7 +432,7 @@ CREATE TABLE tbl_riot_hurt_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (police_stn_id) REFERENCES tbl_police_station_master(police_stn_id),
     FOREIGN KEY (case_type_id) REFERENCES tbl_case_type_master(case_type_id),
@@ -453,7 +453,7 @@ CREATE TABLE tbl_currency_crime_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (police_stn_id) REFERENCES tbl_police_station_master(police_stn_id),
     FOREIGN KEY (currency_denom_id) REFERENCES tbl_currency_denom_master(currency_denom_id),
@@ -474,7 +474,7 @@ CREATE TABLE tbl_crime_stat_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (offence_head_id) REFERENCES tbl_offence_head_master(offence_head_id),
     FOREIGN KEY (offence_id) REFERENCES tbl_offence_master(offence_id),
@@ -495,7 +495,7 @@ CREATE TABLE tbl_crime_status_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (offence_head_id) REFERENCES tbl_offence_head_master(offence_head_id),
     FOREIGN KEY (case_stat_id) REFERENCES tbl_case_status_master(case_stat_id),
@@ -516,7 +516,7 @@ CREATE TABLE tbl_crime_status_law (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (offence_head_id) REFERENCES tbl_offence_head_master(offence_head_id),
     FOREIGN KEY (offence_id) REFERENCES tbl_offence_master(offence_id),
@@ -536,7 +536,7 @@ CREATE TABLE tbl_crime_convict_det (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (conviction_id) REFERENCES tbl_conviction_master(conviction_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),
@@ -556,7 +556,7 @@ CREATE TABLE tbl_livestock_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -568,7 +568,7 @@ CREATE TABLE tbl_livestock_div_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -581,7 +581,7 @@ CREATE TABLE tbl_livestock_prod_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -593,7 +593,7 @@ CREATE TABLE tbl_vet_aid_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -605,7 +605,7 @@ CREATE TABLE tbl_vet_infra_cat_master (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1
 );
 
@@ -625,7 +625,7 @@ CREATE TABLE tbl_livestock_census (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (livestock_id) REFERENCES tbl_livestock_master(livestock_id),
     FOREIGN KEY (livestock_div_id) REFERENCES tbl_livestock_div_master(livestock_div_id),
@@ -646,7 +646,7 @@ CREATE TABLE tbl_vet_aid (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (vet_aid_id) REFERENCES tbl_vet_aid_master(vet_aid_id),
     FOREIGN KEY (unit_id) REFERENCES tbl_unit_master(unit_id),
@@ -667,7 +667,7 @@ CREATE TABLE tbl_vet_infra (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (vet_infra_cat_id) REFERENCES tbl_vet_infra_cat_master(vet_infra_cat_id),
     FOREIGN KEY (unit_id) REFERENCES tbl_unit_master(unit_id),
@@ -688,7 +688,7 @@ CREATE TABLE tbl_livestock_prod (
     created_by VARCHAR(50),
     created_date DATETIME,
     updated_by VARCHAR(50),
-    updated_date DATETIME,
+    uploaded_on DATETIME,
     status_ BOOLEAN DEFAULT 1,
     FOREIGN KEY (livestock_prod_id) REFERENCES tbl_livestock_prod_master(livestock_prod_id),
     FOREIGN KEY (year_id) REFERENCES tbl_year_master(year_id),

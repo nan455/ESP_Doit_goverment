@@ -49,20 +49,17 @@ def debug_session():
 @approver_bp.route("/api/pending_uploads")
 @with_db_connection
 def get_pending_uploads(cursor, conn):
-    """Get all uploads pending approval."""
+    """Get all uploads for approver - FIXED STATUS with CAST."""
     try:
-        # ✅ CRITICAL FIX: Check authentication inline instead of decorator
         if "username" not in session:
-            print("❌ No username in session")
-            print(f"Session keys: {list(session.keys())}")
             return jsonify({"error": "Not authenticated"}), 401
         
         if session.get("role") not in ["approver", "admin"]:
-            print(f"❌ Invalid role: {session.get('role')}")
-            return jsonify({"error": "Unauthorized - Approver or Admin access required"}), 403
+            return jsonify({"error": "Unauthorized"}), 403
         
-        print(f"✅ User authenticated: {session.get('username')} with role: {session.get('role')}")
+        print(f"\n🔍 Approver loading uploads...")
         
+        # ✅ Use CAST to ensure consistent integer type
         cursor.execute("""
             SELECT 
                 id,
@@ -71,29 +68,98 @@ def get_pending_uploads(cursor, conn):
                 uploaded_by,
                 department,
                 uploaded_on,
-                status_
+                CAST(status_ AS SIGNED) as status_
             FROM excel_uploads
             ORDER BY uploaded_on DESC
         """)
         uploads = cursor.fetchall()
         
-        # Convert status_ to readable text
+        # ✅ CONSISTENT STATUS HANDLING
         for upload in uploads:
-            if upload['status_'] == 0:
+            status = upload.get('status_')
+            upload_id = upload.get('id')
+            
+            print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
+            
+            # Normalize status value
+            if status is None or status == '' or status == 'NULL':
+                normalized_status = None  # Pending
+            elif status in [1, True, '1']:
+                normalized_status = 1  # Approved
+            elif status in [0, False, '0']:
+                normalized_status = 0  # Rejected
+            else:
+                normalized_status = None
+            
+            # Add status text and class
+            if normalized_status is None:
                 upload['status_text'] = 'Pending'
-            elif upload['status_'] == 1:
+                upload['status_class'] = 'pending'
+            elif normalized_status == 1:
                 upload['status_text'] = 'Approved'
-            elif upload['status_'] == 2:
+                upload['status_class'] = 'approved'
+            elif normalized_status == 0:
                 upload['status_text'] = 'Rejected'
+                upload['status_class'] = 'rejected'
             else:
                 upload['status_text'] = 'Unknown'
+                upload['status_class'] = 'unknown'
+            
+            # Ensure status_ is normalized
+            upload['status_'] = normalized_status
+            
+            # ✅ NEW STRICT PERMISSION LOGIC FOR APPROVER
+            # RULE: Only PENDING uploads can be edited/approved/rejected
+            # RULE: Approved uploads are LOCKED (view-only)
+            # RULE: Rejected uploads are LOCKED (view-only, cannot re-edit)
+            
+            can_edit = False
+            can_approve = False
+            can_reject = False
+            can_delete = False
+            
+            if normalized_status is None:
+                # ✅ PENDING - Approver can do everything
+                can_edit = True
+                can_approve = True
+                can_reject = True
+                can_delete = True
+                
+            elif normalized_status == 1:
+                # ❌ APPROVED - LOCKED (view-only)
+                can_edit = False
+                can_approve = False
+                can_reject = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow approver to edit approved uploads
+                # can_edit = True
+                # can_reject = True  # Allow re-rejection of approved
+                
+            elif normalized_status == 0:
+                # ❌ REJECTED - LOCKED (view-only, cannot make changes)
+                can_edit = False
+                can_approve = False  # Cannot re-approve rejected
+                can_reject = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow approver to edit rejected uploads
+                # can_edit = True
+                # can_approve = True  # Allow re-approval of rejected
+            
+            upload['can_edit'] = can_edit
+            upload['can_approve'] = can_approve
+            upload['can_reject'] = can_reject
+            upload['can_delete'] = can_delete
+            
+            print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Approve: {can_approve}, Can Reject: {can_reject}")
+
         
-        print(f"✅ Returning {len(uploads)} uploads")
         return jsonify(uploads)
         
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"❌ Error loading uploads: {e}")
+        print(f"❌ Error: {e}")
         print(tb)
         
         config_obj = current_app.config.get("CONFIG_OBJ")
@@ -101,19 +167,16 @@ def get_pending_uploads(cursor, conn):
             log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         
         return jsonify({"error": str(e)}), 500
-
-
 @approver_bp.route("/api/approve_upload", methods=["POST"])
 @with_db_connection
 def approve_upload(cursor, conn):
     """Approve an upload."""
     try:
-        # ✅ CRITICAL FIX: Check authentication inline
         if "username" not in session:
             return jsonify({"error": "Not authenticated"}), 401
         
         if session.get("role") not in ["approver", "admin"]:
-            return jsonify({"error": "Unauthorized - Approver or Admin access required"}), 403
+            return jsonify({"error": "Unauthorized"}), 403
         
         data = request.get_json()
         upload_id = data.get("upload_id")
@@ -121,23 +184,20 @@ def approve_upload(cursor, conn):
         if not upload_id:
             return jsonify({"error": "Upload ID is required"}), 400
         
-        # ✅ Check if upload exists
         cursor.execute("SELECT id FROM excel_uploads WHERE id = %s", (upload_id,))
         if not cursor.fetchone():
             return jsonify({"error": "Upload not found"}), 404
         
-        # Update status to approved (1)
+        # ✅ Set status_ = 1 for approved
         cursor.execute("""
             UPDATE excel_uploads 
             SET status_ = 1,
-                updated_by = %s,
-                updated_date = %s
+                uploaded_by = %s,
+                uploaded_on = %s
             WHERE id = %s
         """, (session.get("username"), datetime.datetime.now(), upload_id))
         
         conn.commit()
-        
-        print(f"✅ Upload {upload_id} approved by {session.get('username')}")
         
         return jsonify({
             "message": "Upload approved successfully",
@@ -146,9 +206,6 @@ def approve_upload(cursor, conn):
         
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"❌ Error approving upload: {e}")
-        print(tb)
-        
         config_obj = current_app.config.get("CONFIG_OBJ")
         if config_obj:
             log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
@@ -184,9 +241,9 @@ def reject_upload(cursor, conn):
         # Update status to rejected (2)
         cursor.execute("""
             UPDATE excel_uploads 
-            SET status_ = 2,
-                updated_by = %s,
-                updated_date = %s
+            SET status_ = 0,
+                uploaded_by = %s,
+                uploaded_on = %s
             WHERE id = %s
         """, (session.get("username"), datetime.datetime.now(), upload_id))
         

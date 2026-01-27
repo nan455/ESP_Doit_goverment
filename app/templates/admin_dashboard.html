@@ -192,6 +192,30 @@ body {
     transition: all 0.3s;
     z-index: 1000;
 }
+ .status-badge {
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.status-pending {
+    background: #fed7aa;
+    color: #92400e;
+}
+
+.status-approved {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
 .user-dropdown.active {
     opacity: 1;
@@ -1773,41 +1797,74 @@ function showConfirm(msg, yesFn) {
 
 
         function renderUploads() {
-            const body = document.getElementById('uploadsBody');
-            if (!body) return;
-            
-            if (uploadsCache.length === 0) {
-                body.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No uploads found</p></div></td></tr>';
-                return;
-            }
+    const body = document.getElementById('uploadsBody');
+    if (!body) return;
+    
+    if (uploadsCache.length === 0) {
+        body.innerHTML = '<tr><td colspan="8"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No uploads found</p></div></td></tr>';
+        return;
+    }
 
-            body.innerHTML = uploadsCache.map(row => `
-                <tr>
-                    <td><strong>${row.id}</strong></td>
-                    <td>${escapeHtml(row.filename || '-')}</td>
-                    <td>${escapeHtml(row.table_name || '-')}</td>
-                    <td>${escapeHtml(row.uploaded_by || '-')}</td>
-                    <td>${escapeHtml(row.department || '-')}</td>
-                    <td>${formatDate(row.uploaded_on)}</td>
-                    <td>
-                        <div class="action-group">
-                            <button class="btn btn-info btn-sm" title="View" onclick="viewExcel('${encodeURIComponent(row.table_name)}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="btn btn-warning btn-sm" title="Edit" onclick="editExcel('${encodeURIComponent(row.table_name)}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-success btn-sm" title="Download" onclick="downloadExcel('${encodeURIComponent(row.filename)}','${encodeURIComponent(row.table_name)}')">
-                                <i class="fas fa-download"></i>
-                            </button>
-                            <button class="btn btn-danger btn-sm" title="Delete" onclick="deleteUpload(${row.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+    body.innerHTML = uploadsCache.map(row => {
+        // ✅ STATUS DISPLAY
+        const status = row.status_;
+        let statusBadge = '';
+        
+        if (status === null || status === undefined || status === '') {
+            statusBadge = '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>';
         }
+        else if (status === 1 || status === true || status === '1') {
+            statusBadge = '<span class="status-badge status-approved"><i class="fas fa-check-circle"></i> Approved</span>';
+        }
+        else if (status === 0 || status === false || status === '0') {
+            statusBadge = '<span class="status-badge status-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
+        }
+        else {
+            statusBadge = '<span class="badge" style="background:#ccc">Unknown</span>';
+        }
+        
+        // ✅ ACTIONS based on can_edit
+        const canEdit = row.can_edit === true;
+        
+        return `
+            <tr>
+                <td><strong>${row.id}</strong></td>
+                <td>${escapeHtml(row.filename || '-')}</td>
+                <td>${escapeHtml(row.table_name || '-')}</td>
+                <td>${escapeHtml(row.updated_by || '-')}</td>
+                <td>${escapeHtml(row.department || '-')}</td>
+                <td>${formatDate(row.uploaded_on)}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn btn-info btn-sm" onclick="viewExcel('${encodeURIComponent(row.table_name)}')">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        ${canEdit 
+                            ? `<button class="btn btn-warning btn-sm" onclick="editExcel('${encodeURIComponent(row.table_name)}')">
+                                   <i class="fas fa-edit"></i> Edit
+                               </button>`
+                            : `<button class="btn btn-warning btn-sm" disabled style="opacity:0.5">
+                                   <i class="fas fa-lock"></i> Locked
+                               </button>`
+                        }
+                        <button class="btn btn-success btn-sm" onclick="downloadExcel('${encodeURIComponent(row.filename)}','${encodeURIComponent(row.table_name)}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        ${canEdit 
+                            ? `<button class="btn btn-danger btn-sm" onclick="deleteUpload(${row.id})">
+                                   <i class="fas fa-trash"></i> Delete
+                               </button>`
+                            : `<button class="btn btn-danger btn-sm" disabled style="opacity:0.5">
+                                   <i class="fas fa-lock"></i> Locked
+                               </button>`
+                        }
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
 
         async function deleteUpload(id) {
     showConfirm("Are you sure you want to delete this upload?", async ()=>{
@@ -1837,26 +1894,26 @@ function showConfirm(msg, yesFn) {
             renderUploads();
         }
 
-        function renderUploads() {
-            const body = document.getElementById('uploadsBody');
-            if (!body) return;
+        // function renderUploads() {
+        //     const body = document.getElementById('uploadsBody');
+        //     if (!body) return;
             
-            if (uploadsCache.length === 0) {
-                body.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No uploads found</p></div></td></tr>';
-                return;
-            }
+        //     if (uploadsCache.length === 0) {
+        //         body.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No uploads found</p></div></td></tr>';
+        //         return;
+        //     }
 
-            body.innerHTML = uploadsCache.map(row => `
-                <tr>
-                    <td><strong>${row.id}</strong></td>
-                    <td>${escapeHtml(row.filename || '-')}</td>
-                    <td>${escapeHtml(row.table_name || '-')}</td>
-                    <td>${escapeHtml(row.uploaded_by || '-')}</td>
-                    <td>${escapeHtml(row.department || '-')}</td>
-                    <td>${formatDate(row.uploaded_on)}</td>
-                </tr>
-            `).join('');
-        }
+        //     body.innerHTML = uploadsCache.map(row => `
+        //         <tr>
+        //             <td><strong>${row.id}</strong></td>
+        //             <td>${escapeHtml(row.filename || '-')}</td>
+        //             <td>${escapeHtml(row.table_name || '-')}</td>
+        //             <td>${escapeHtml(row.updated_by || '-')}</td>
+        //             <td>${escapeHtml(row.department || '-')}</td>
+        //             <td>${formatDate(row.updated_date)}</td>
+        //         </tr>
+        //     `).join('');
+        // }
 
         // function filterUploads() {
         //     const q = document.getElementById('searchUpload')?.value.toLowerCase() || '';
@@ -2059,7 +2116,7 @@ function showConfirm(msg, yesFn) {
                         <td><strong>${t.id}</strong></td>
                         <td>${escapeHtml(t.name || t.original_filename || '-')}</td>
                         <td>${escapeHtml(t.department || 'GLOBAL')}</td>
-                        <td>${escapeHtml(t.uploaded_by || '-')}</td>
+                        <td>${escapeHtml(t.updated_by || '-')}</td>
                         <td>
                             <div class="action-group">
                                 <button class="btn btn-success btn-sm" onclick="window.location.href='/download_template?id=${t.id}'">
@@ -2627,7 +2684,7 @@ async function loadDepartments() {
                     department: dept.department,
                     status: 'submitted',
                     last_upload: dept.last_upload,
-                    uploaded_by: dept.uploaded_by,
+                    updated_by: dept.updated_by,
                     files_count: dept.files_count
                 });
             });
@@ -2638,7 +2695,7 @@ async function loadDepartments() {
                     department: dept.department,
                     status: 'pending',
                     last_upload: dept.last_upload || '-',
-                    uploaded_by: dept.uploaded_by || '-',
+                    updated_by: dept.updated_by || '-',
                     files_count: dept.files_count || 0
                 });
             });
@@ -2649,7 +2706,7 @@ async function loadDepartments() {
                     department: dept,
                     status: 'not_submitted',
                     last_upload: '-',
-                    uploaded_by: '-',
+                    updated_by: '-',
                     files_count: 0
                 });
             });
@@ -2674,7 +2731,7 @@ async function loadDepartments() {
                         <td><strong>${escapeHtml(dept.department)}</strong></td>
                         <td>${statusBadge}</td>
                         <td>${formatDate(dept.last_upload)}</td>
-                        <td>${escapeHtml(dept.uploaded_by)}</td>
+                        <td>${escapeHtml(dept.updated_by)}</td>
                         <td><span class="badge badge-user">${dept.files_count} files</span></td>
                     </tr>
                 `;

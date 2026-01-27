@@ -46,6 +46,30 @@
             max-width: 1400px;
             margin: 0 auto;
         }
+        .status-badge {
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.status-pending {
+    background: #fed7aa;
+    color: #92400e;
+}
+
+.status-approved {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
         .header {
             background: white;
@@ -531,7 +555,7 @@
             
             <div class="header-content">
                 <h1>DIRECTORATE OF ECONOMICS AND STATISTICS</h1>
-                <h1 style="color: #cc6600;">பொருளாதாரம் மற்றும் புள்ளியியல் இயக்ககம்</h1>
+               <h1 style="color: #cc6600;">பொருளாதாரம் மற்றும் புள்ளியியல் இயக்ககம்</h1>
             </div>
             
             <div class="user-info" onclick="toggleUserDropdown()">
@@ -709,7 +733,7 @@
 
         async function loadCurrentUser() {
             try {
-                const res = await fetch('/api/profile', { credentials: 'include' });
+                const res = await fetch('/api/current_user', { credentials: 'include' });
                 const user = await res.json();
                 currentUser = user;
                 
@@ -858,64 +882,97 @@
             }
         }
 
-        function renderUploads() {
-            const tbody = document.getElementById('uploadsTable');
-            
-            if (uploads.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:3rem;color:#9ca3af">No uploads found</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = uploads.map(u => {
-                let statusBadge = '';
-                if (u.status_ === null || u.status_ === undefined) {
-                    statusBadge = '<span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>';
-                } else if (u.status_ === 1) {
-                    statusBadge = '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Approved</span>';
-                } else if (u.status_ === 0) {
-                    statusBadge = '<span class="badge badge-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
-                }
-
-               const actions = (u.status_ === null || u.status_ === undefined) ? `
-                    <div class="action-group">
-                        <button class="btn btn-info" onclick="viewUpload(${u.id})">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        <button class="btn btn-warning" onclick="editUpload(${u.id})">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                        <button class="btn btn-success" onclick="approveUpload(${u.id})">
-                            <i class="fas fa-check"></i> Approve
-                        </button>
-                        <button class="btn btn-danger" onclick="rejectUpload(${u.id})">
-                            <i class="fas fa-times"></i> Reject
-                        </button>
-                    </div>
-                ` : `
-                    <div class="action-group">
-                        <button class="btn btn-info" onclick="viewUpload(${u.id})">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        <button class="btn btn-warning" onclick="editUpload(${u.id})">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                    </div>
-                `;
-                    
-               return `
-                <tr>
-                    <td><strong>${u.id}</strong></td>
-                    <td>${escapeHtml(u.filename)}</td>
-                    <td>${escapeHtml(u.table_name)}</td>
-                    <td>${escapeHtml(u.department)}</td>
-                    <td>${escapeHtml(u.uploaded_by)}</td>
-                    <td>${new Date(u.uploaded_on).toLocaleString()}</td>
-                    <td>${statusBadge}</td>
-                    <td>${actions}</td>
-                </tr>
-            `;
-        }).join('');
+    
+function renderUploads() {
+    const tbody = document.getElementById('uploadsTable');
+    
+    if (uploads.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:3rem;color:#9ca3af">No uploads found</td></tr>';
+        return;
     }
+
+    tbody.innerHTML = uploads.map(u => {
+        // ✅ STATUS DISPLAY FIX
+        const status = u.status_;
+        console.log(`Upload #${u.id}: status_ = ${status}, can_edit: ${u.can_edit}`);
+        
+        let statusBadge = '';
+        
+        if (status === null || status === undefined || status === '' || status === 'NULL') {
+            statusBadge = '<span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>';
+        }
+        else if (status === 1 || status === true || status === '1') {
+            statusBadge = '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Approved</span>';
+        }
+        else if (status === 0 || status === false || status === '0') {
+            statusBadge = '<span class="badge badge-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
+        }
+        else {
+            statusBadge = '<span class="badge" style="background:#ccc">Unknown</span>';
+        }
+
+        // ✅ BUTTONS based on backend flags
+        const canEdit = u.can_edit === true;
+        const canApprove = u.can_approve === true;
+        const canReject = u.can_reject === true;
+        
+        let actions = '<div class="action-group">';
+        
+        // View button (always visible)
+        actions += `
+            <button class="btn btn-info" onclick="viewUpload(${u.id})">
+                <i class="fas fa-eye"></i> View
+            </button>
+        `;
+        
+        // Edit button (only if can_edit)
+        if (canEdit) {
+            actions += `
+                <button class="btn btn-warning" onclick="editUpload(${u.id})">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+            `;
+        } else {
+            actions += `
+                <button class="btn btn-warning" disabled style="opacity:0.5;cursor:not-allowed" title="Cannot edit approved files">
+                    <i class="fas fa-lock"></i> Locked
+                </button>
+            `;
+        }
+        
+        // Approve/Reject buttons (only if pending)
+        if (canApprove) {
+            actions += `
+                <button class="btn btn-success" onclick="approveUpload(${u.id})">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+            `;
+        }
+        
+        if (canReject) {
+            actions += `
+                <button class="btn btn-danger" onclick="rejectUpload(${u.id})">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+            `;
+        }
+        
+        actions += '</div>';
+            
+       return `
+        <tr>
+            <td><strong>${u.id}</strong></td>
+            <td>${escapeHtml(u.filename)}</td>
+            <td>${escapeHtml(u.table_name)}</td>
+            <td>${escapeHtml(u.department)}</td>
+            <td>${escapeHtml(u.updated_by)}</td>
+            <td>${new Date(u.updated_date).toLocaleString()}</td>
+            <td>${statusBadge}</td>
+            <td>${actions}</td>
+        </tr>
+    `;
+    }).join('');
+}
 
     function escapeHtml(text) {
         const div = document.createElement('div');

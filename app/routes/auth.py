@@ -45,7 +45,7 @@ def login(cursor, conn):
 
         # ✅ CRITICAL FIX: Clear session and set correct user data
         session.clear()
-        session.permanent = True
+        session.permanent = False
         
         # ✅ Set session data from DATABASE user object
         session["user_id"] = user["id"]

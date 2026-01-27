@@ -17,7 +17,7 @@ def is_audit_column(col: str) -> bool:
         "updated_by",
         "updated_date",
         "status_",
-        "uploaded_by",
+        "updated_by",
         "created_at",
         "updated_at",
     }

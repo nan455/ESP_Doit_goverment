@@ -119,7 +119,7 @@ def admin_delete_user(cursor, conn, uid):
 def get_templates(cursor, conn):
     """Get all Excel templates."""
     cursor.execute(
-        "SELECT id, name, department, uploaded_by "
+        "SELECT id, name, department, updated_by "
         "FROM excel_templates ORDER BY id DESC"
     )
     return jsonify(cursor.fetchall())
@@ -142,7 +142,7 @@ def upload_template(cursor, conn):
 
     cursor.execute(
         """
-        INSERT INTO excel_templates (name, department, uploaded_by)
+        INSERT INTO excel_templates (name, department, updated_by)
         VALUES (%s, %s, %s)
         """,
         (filename, department, session.get("username")),
@@ -277,3 +277,100 @@ def api_error_logs_clear(cursor, conn):
     conn.commit()
     return jsonify({"message": "All logs cleared"})
 
+
+@admin_bp.route("/uploads", methods=["GET"])
+@with_db_connection
+def admin_uploads_list(cursor, conn):
+    """Get all uploads for admin - WITH CONSISTENT STATUS."""
+    if session.get("role") != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    
+    try:
+        # ✅ Include status_ with CAST for consistent typing
+        cursor.execute("""
+            SELECT 
+                id, 
+                filename, 
+                table_name, 
+                updated_by, 
+                department, 
+                updated_date,
+                CAST(status_ AS SIGNED) as status_
+            FROM excel_uploads 
+            ORDER BY updated_date DESC
+        """)
+        
+        uploads = cursor.fetchall()
+        
+        # ✅ CONSISTENT STATUS HANDLING
+        for upload in uploads:
+            status = upload.get('status_')
+            
+            # Normalize status value
+            if status is None or status == '' or status == 'NULL':
+                normalized_status = None  # Pending
+            elif status in [1, True, '1']:
+                normalized_status = 1  # Approved
+            elif status in [0, False, '0']:
+                normalized_status = 0  # Rejected
+            else:
+                normalized_status = None
+            
+            # Add status text for display
+            if normalized_status is None:
+                upload['status_text'] = 'Pending'
+                upload['status_class'] = 'pending'
+            elif normalized_status == 1:
+                upload['status_text'] = 'Approved'
+                upload['status_class'] = 'approved'
+            elif normalized_status == 0:
+                upload['status_text'] = 'Rejected'
+                upload['status_class'] = 'rejected'
+            else:
+                upload['status_text'] = 'Unknown'
+                upload['status_class'] = 'unknown'
+            
+            # Ensure status_ is normalized
+            upload['status_'] = normalized_status
+            
+            # ✅ NEW STRICT PERMISSION LOGIC FOR ADMIN
+            # RULE: Only PENDING uploads can be edited/deleted
+            # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
+            
+            can_edit = False
+            can_delete = False
+            
+            if normalized_status is None:
+                # ✅ PENDING - Admin can edit and delete
+                can_edit = True
+                can_delete = True
+                
+            elif normalized_status == 1:
+                # ❌ APPROVED - LOCKED (view-only even for admin)
+                can_edit = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow admin to edit/delete approved uploads
+                # can_edit = True
+                # can_delete = True
+                
+            elif normalized_status == 0:
+                # ❌ REJECTED - LOCKED (view-only even for admin)
+                can_edit = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow admin to edit/delete rejected uploads
+                # can_edit = True
+                # can_delete = True
+            
+            upload['can_edit'] = can_edit
+            upload['can_delete'] = can_delete
+        
+        return jsonify(uploads)
+        
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"❌ Error loading admin uploads: {e}")
+        config_obj = current_app.config.get("CONFIG_OBJ")
+        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        return jsonify({"error": str(e)}), 500

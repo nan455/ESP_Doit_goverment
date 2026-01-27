@@ -1,4 +1,4 @@
-"""API routes for data operations."""
+"""API routes for data operations - FIXED STATUS DISPLAY."""
 from flask import Blueprint, request, jsonify, session, send_file
 import datetime
 import decimal
@@ -34,9 +34,9 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-@api_bp.route("/api/profile")
+@api_bp.route("/api/current_user")
 @with_db_connection
-def api_profile(cursor, conn):
+def api_current_user(cursor, conn):
     """Get current user profile."""
     cursor.execute(
         "SELECT id, username, department, role "
@@ -234,108 +234,79 @@ def user_can_edit_table(cursor, table_name: str) -> bool:
             "WHERE LOWER(department)=LOWER(%s) AND target_table_name=%s LIMIT 1",
             (dept, table_name),
         )
-        if cursor.fetchone():
-            return True
-    except Exception:
-        pass
-
-    cursor.execute(
-        "SELECT 1 FROM excel_uploads WHERE table_name=%s AND department=%s LIMIT 1",
-        (table_name, dept),
-    )
-    return cursor.fetchone() is not None
+        return cursor.fetchone() is not None
+    except:
+        return False
 
 
-@api_bp.route("/api/update_excel_cell", methods=["POST"])
+@api_bp.route("/api/update_excel_row", methods=["POST"])
 @with_db_connection
-def api_update_excel_cell(cursor, conn):
-    """Update a single cell in a table."""
+def api_update_excel_row(cursor, conn):
+    """Update a row in a table."""
     data = request.get_json(force=True)
     table = data.get("table")
-    col = data.get("column")
-    val = data.get("value")
+    updates = data.get("updates")
     row_id = data.get("id")
 
-    # Permission check
     if not user_can_edit_table(cursor, table):
-        return jsonify({"error": "You do not have permission to edit this table."}), 403
+        return jsonify({"error": "Permission denied"}), 403
 
     try:
-        # Clean string
-        if isinstance(val, str):
-            val = val.strip() or None
+        set_clauses = []
+        values = []
+        pk_col = "id"
 
-        # Load table columns
+        cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name='PRIMARY'")
+        pk_res = cursor.fetchone()
+        if pk_res:
+            pk_col = pk_res["Column_name"]
+
         cursor.execute(f"SHOW COLUMNS FROM `{table}`")
         cols_info = cursor.fetchall()
-        db_cols = [c["Field"] for c in cols_info]
+        col_names = [c["Field"] for c in cols_info]
 
-        if col not in db_cols:
-            return jsonify({"error": "Invalid column."}), 400
+        for key, val in updates.items():
+            if key not in col_names:
+                continue
+            if key == pk_col or is_audit_column(key):
+                continue
 
-        if col == "id" or is_audit_column(col):
-            return jsonify({"error": "This column cannot be edited."}), 400
+            if isinstance(val, str):
+                val = val.strip() or None
 
-        # Special: year column → convert display → id
-        if col == "year_id":
-            try:
+            if key == "year_id":
                 val = resolve_year(cursor, val)
-            except Exception as e:
-                return jsonify({"error": "Invalid year selected."}), 400
+            elif key.endswith("_id"):
+                val = fk_value_to_id(cursor, key, val, LOOKUP_CONFIG)
 
-        # Special: foreign key columns
-        elif col.endswith("_id"):
-            try:
-                val = fk_value_to_id(cursor, col, val, LOOKUP_CONFIG)
-            except Exception as e:
-                return jsonify({"error": "Invalid option selected."}), 400
+            set_clauses.append(f"`{key}` = %s")
+            values.append(val)
 
-        # Detect primary key
-        cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name = 'PRIMARY'")
-        pk_res = cursor.fetchone()
-        pk_col = pk_res["Column_name"] if pk_res else "id"
+        if not set_clauses:
+            return jsonify({"error": "Nothing to update"}), 400
 
-        # Build UPDATE
-        audit_sql = ""
-        audit_vals = []
-
-        if "updated_by" in db_cols:
-            audit_sql += ", updated_by=%s"
-            audit_vals.append(session.get("username", "system"))
-
-        if "updated_date" in db_cols:
-            audit_sql += ", updated_date=%s"
-            audit_vals.append(datetime.datetime.now())
-
-        sql = f"UPDATE `{table}` SET `{col}`=%s{audit_sql} WHERE `{pk_col}`=%s"
-
-        cursor.execute(sql, (val, *audit_vals, row_id))
+        values.append(row_id)
+        sql = f"UPDATE `{table}` SET {', '.join(set_clauses)} WHERE `{pk_col}` = %s"
+        cursor.execute(sql, tuple(values))
         conn.commit()
 
-        return jsonify({"message": "Saved", "value": val})
-
-    except ValueError:
-        conn.rollback()
-        return jsonify({"error": "Invalid value entered."}), 400
-
+        return jsonify({"message": "Row updated"})
     except Exception as e:
         tb = traceback.format_exc()
         config_obj = current_app.config.get("CONFIG_OBJ")
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         conn.rollback()
-        print("❌ update error:", e)
-        return jsonify({
-            "error": "Something went wrong. Please enter valid data."
-        }), 400
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
 
 @api_bp.route("/api/add_excel_row", methods=["POST"])
 @with_db_connection
 def api_add_excel_row(cursor, conn):
-    """Add a new row to a table."""
+    """Add a row to a table."""
     data = request.get_json(force=True)
     table = data.get("table")
-    row_data = data.get("row_data") or {}
+    new_row = data.get("row")
 
     if not user_can_edit_table(cursor, table):
         return jsonify({"error": "Permission denied"}), 403
@@ -343,37 +314,14 @@ def api_add_excel_row(cursor, conn):
     try:
         cursor.execute(f"SHOW COLUMNS FROM `{table}`")
         cols_info = cursor.fetchall()
-        db_cols = [c["Field"] for c in cols_info]
+        col_names = [c["Field"] for c in cols_info]
 
         insert_cols = []
         insert_vals = []
         placeholders = []
 
-        # audit on insert
-        if "created_by" in db_cols:
-            insert_cols.append("created_by")
-            insert_vals.append(session.get("username"))
-            placeholders.append("%s")
-        if "created_date" in db_cols:
-            insert_cols.append("created_date")
-            insert_vals.append(datetime.datetime.now())
-            placeholders.append("%s")
-        if "status_" in db_cols:
-            insert_cols.append("status_")
-            insert_vals.append(1)
-            placeholders.append("%s")
-        if "updated_by" in db_cols:
-            insert_cols.append("updated_by")
-            insert_vals.append(session.get("username"))
-            placeholders.append("%s")
-        if "updated_date" in db_cols:
-            insert_cols.append("updated_date")
-            insert_vals.append(datetime.datetime.now())
-            placeholders.append("%s")
-
-        # user-provided
-        for col, val in row_data.items():
-            if col not in db_cols:
+        for col, val in new_row.items():
+            if col not in col_names:
                 continue
             if col == "id" or is_audit_column(col):
                 continue
@@ -442,36 +390,241 @@ def api_delete_excel_row(cursor, conn):
 @api_bp.route("/uploads")
 @with_db_connection
 def get_uploads(cursor, conn):
-    """Get uploads for current user's department."""
+    """Get uploads for current user's department - FIXED VERSION WITH CONSISTENT STATUS."""
     try:
         department = session.get("department")
         role = session.get("role")
+        username = session.get("username")
         
+        print(f"\n🔍 Loading uploads for: {username} ({role}) - Dept: {department}")
+        
+        # ✅ CRITICAL FIX: Always include status_ in SELECT and ensure proper typing
         if role == "admin":
-            # Admin sees all uploads
             cursor.execute("""
-                SELECT id, filename, table_name, uploaded_by, department, 
-                       uploaded_on, status_
+                SELECT 
+                    id, 
+                    filename, 
+                    table_name, 
+                    uploaded_by, 
+                    department, 
+                    uploaded_on,
+                    CAST(status_ AS SIGNED) as status_
                 FROM excel_uploads 
                 ORDER BY uploaded_on DESC
             """)
         else:
-            # Users see only their department's uploads
             cursor.execute("""
-                SELECT id, filename, table_name, uploaded_by, department, 
-                       uploaded_on, status_
+                SELECT 
+                    id, 
+                    filename, 
+                    table_name, 
+                    uploaded_by, 
+                    department, 
+                    uploaded_on,
+                    CAST(status_ AS SIGNED) as status_
                 FROM excel_uploads 
                 WHERE department = %s 
                 ORDER BY uploaded_on DESC
             """, (department,))
         
         uploads = cursor.fetchall()
+        
+        # print(f"📊 Found {len(uploads)} uploads")
+        
+        # ✅ CONSISTENT STATUS HANDLING FOR ALL DASHBOARDS
+        for upload in uploads:
+            status = upload.get('status_')
+            upload_id = upload.get('id')
+            
+            # Debug print
+            print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
+            
+            # ✅ CRITICAL: Normalize status value to integer
+            # Handle NULL, None, empty string, True/False, 0/1, "0"/"1"
+            if status is None or status == '' or status == 'NULL':
+                normalized_status = None  # Pending
+            elif status in [1, True, '1']:
+                normalized_status = 1  # Approved
+            elif status in [0, False, '0']:
+                normalized_status = 0  # Rejected
+            else:
+                normalized_status = None  # Default to pending
+            
+            # ✅ Add status_text for consistency across all dashboards
+            if normalized_status is None:
+                upload['status_text'] = 'Pending'
+                upload['status_class'] = 'pending'
+            elif normalized_status == 1:
+                upload['status_text'] = 'Approved'
+                upload['status_class'] = 'approved'
+            elif normalized_status == 0:
+                upload['status_text'] = 'Rejected'
+                upload['status_class'] = 'rejected'
+            else:
+                upload['status_text'] = 'Unknown'
+                upload['status_class'] = 'unknown'
+            
+            # ✅ Ensure status_ is set to normalized value for frontend
+            upload['status_'] = normalized_status
+            
+            # ✅ NEW STRICT PERMISSION LOGIC
+            # RULE: Only PENDING uploads can be edited/deleted
+            # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
+            
+            can_edit = False
+            can_delete = False
+            
+            if normalized_status is None:
+                # ✅ PENDING - Can edit/delete based on role
+                if role == "admin":
+                    can_edit = True
+                    can_delete = True
+                elif role == "approver":
+                    can_edit = True
+                    can_delete = True
+                elif role == "user":
+                    # User can only edit/delete their own uploads
+                    can_edit = (upload.get('uploaded_by') == username)
+                    can_delete = (upload.get('uploaded_by') == username)
+                    
+            elif normalized_status == 1:
+                # ❌ APPROVED - LOCKED (view-only for everyone)
+                can_edit = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow admin/approver override
+                # if role == "admin":
+                #     can_edit = True
+                #     can_delete = True
+                # elif role == "approver":
+                #     can_edit = True
+                #     can_delete = True
+                
+            elif normalized_status == 0:
+                # ❌ REJECTED - LOCKED (view-only for everyone)
+                can_edit = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow admin/approver override
+                # if role == "admin":
+                #     can_edit = True
+                #     can_delete = True
+                # elif role == "approver":
+                #     can_edit = True
+                #     can_delete = True
+            
+            upload['can_edit'] = can_edit
+            upload['can_delete'] = can_delete
+            print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Delete: {can_delete}")
+
+        
         return jsonify(uploads)
+        
     except Exception as e:
         tb = traceback.format_exc()
+        print(f"❌ Error in get_uploads: {e}")
+        print(tb)
         config_obj = current_app.config.get("CONFIG_OBJ")
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         return jsonify({"error": str(e)}), 500
 
+def user_can_edit_upload(cursor, upload_id: str, username: str, role: str) -> tuple:
+    """
+    Check if user can edit an upload based on approval status.
+    
+    Returns: (can_edit: bool, reason: str)
+    
+    NEW STRICT Rules:
+    - Pending (status_ IS NULL): User, Admin, Approver can edit
+    - Approved (status_ = 1): LOCKED - Nobody can edit (view-only)
+    - Rejected (status_ = 0): LOCKED - Nobody can edit (view-only)
+    """
+    try:
+        # Get upload info with CAST to ensure integer type
+        cursor.execute("""
+            SELECT id, uploaded_by, department, CAST(status_ AS SIGNED) as status_, table_name
+            FROM excel_uploads
+            WHERE id = %s
+        """, (upload_id,))
+        
+        upload = cursor.fetchone()
+        
+        if not upload:
+            return False, "Upload not found"
+        
+        # ✅ NEW STRICT LOGIC:
+        # Only PENDING can be edited
+        # Approved and Rejected are both LOCKED
+        
+        status = upload.get('status_')
+        
+        # If approved OR rejected, LOCKED
+        if status == 1:
+            # 💾 BACKUP: Uncomment to allow admin/approver to edit approved
+            # if role == "admin":
+            #     return True, "Admin can edit approved uploads"
+            # if role == "approver":
+            #     return True, "Approver can edit approved uploads"
+            
+            return False, "Cannot edit approved uploads (locked)"
+        
+        if status == 0:
+            # 💾 BACKUP: Uncomment to allow admin/approver to edit rejected
+            # if role == "admin":
+            #     return True, "Admin can edit rejected uploads"
+            # if role == "approver":
+            #     return True, "Approver can edit rejected uploads"
+            
+            return False, "Cannot edit rejected uploads (locked)"
+        
+        # Only PENDING uploads can be edited
+        # Admin can edit any pending upload
+        if role == "admin":
+            return True, "Admin access"
+        
+        # Approver can edit any pending upload
+        if role == "approver":
+            return True, "Approver access"
+        
+        # User can only edit their own pending uploads
+        if role == "user":
+            if upload['uploaded_by'] == username:
+                return True, "User owns this upload"
+            else:
+                return False, "Can only edit your own uploads"
+        
+        return False, "No permission"
+        
+    except Exception as e:
+        print(f"❌ Error checking edit permission: {e}")
+        return False, str(e)
 
-        return jsonify({"error": str(e)}), 500
+
+@api_bp.route("/api/can_edit_upload", methods=["POST"])
+@with_db_connection
+def api_can_edit_upload(cursor, conn):
+    """Check if current user can edit an upload."""
+    try:
+        if "username" not in session:
+            return jsonify({"can_edit": False, "reason": "Not authenticated"}), 401
+        
+        data = request.get_json()
+        upload_id = data.get("upload_id")
+        
+        if not upload_id:
+            return jsonify({"can_edit": False, "reason": "Missing upload_id"}), 400
+        
+        can_edit, reason = user_can_edit_upload(
+            cursor,
+            upload_id,
+            session.get("username"),
+            session.get("role")
+        )
+        
+        return jsonify({
+            "can_edit": can_edit,
+            "reason": reason
+        })
+        
+    except Exception as e:
+        return jsonify({"can_edit": False, "reason": str(e)}), 500

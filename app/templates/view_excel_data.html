@@ -751,7 +751,7 @@
         }
 
         function goBack() {
-    fetch("/api/profile")
+    fetch("/api/current_user", { credentials: 'include' })
         .then(r => r.json())
         .then(u => window.location.href =
             u.role === "admin" ? "/admin_dashboard" :

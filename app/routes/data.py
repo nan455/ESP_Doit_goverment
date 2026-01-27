@@ -194,7 +194,7 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
         cursor.execute(
             """
             INSERT INTO excel_uploads
-            (filename, table_name, uploaded_by, department)
+            (filename, table_name, updated_by, department)
             VALUES (%s, %s, %s, %s)
             """,
             (
@@ -282,7 +282,7 @@ def download_excel(cursor, conn):
 @data_bp.route("/uploads", methods=["GET"])
 @with_db_connection
 def uploads_list(cursor, conn):
-    """Get list of uploads."""
+    """Get list of uploads WITH STATUS - FIXED VERSION."""
     import json
     import decimal
     import datetime
@@ -296,29 +296,135 @@ def uploads_list(cursor, conn):
             return super().default(obj)
     
     try:
-        if session.get("role") == "admin":
-            cursor.execute(
-                "SELECT id, filename, table_name, uploaded_by, "
-                "department, uploaded_on "
-                "FROM excel_uploads ORDER BY uploaded_on DESC"
-            )
+        department = session.get("department")
+        role = session.get("role")
+        username = session.get("username")
+        
+        # print(f"\n🔍 [data.py] Loading uploads for: {username} ({role}) - Dept: {department}")
+        
+        # ✅ CRITICAL FIX: Include status_ with CAST for consistent type
+        if role == "admin":
+            cursor.execute("""
+                SELECT 
+                    id, 
+                    filename, 
+                    table_name, 
+                    updated_by, 
+                    department, 
+                    updated_date,
+                    CAST(status_ AS SIGNED) as status_
+                FROM excel_uploads 
+                ORDER BY updated_date DESC
+            """)
         else:
-            dept = request.args.get("department") or session.get("department")
-            cursor.execute(
-                "SELECT id, filename, table_name, uploaded_by, "
-                "department, uploaded_on "
-                "FROM excel_uploads WHERE department=%s "
-                "ORDER BY uploaded_on DESC",
-                (dept,),
-            )
+            dept = request.args.get("department") or department
+            cursor.execute("""
+                SELECT 
+                    id, 
+                    filename, 
+                    table_name, 
+                    updated_by, 
+                    department, 
+                    updated_date,
+                    CAST(status_ AS SIGNED) as status_
+                FROM excel_uploads 
+                WHERE department=%s 
+                ORDER BY updated_date DESC
+            """, (dept,))
+        
         rows = cursor.fetchall()
+        
+        # print(f"📊 Found {len(rows)} uploads")
+        
+        # ✅ CONSISTENT STATUS NORMALIZATION
+        for upload in rows:
+            status = upload.get('status_')
+            upload_id = upload.get('id')
+            
+            # print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
+            
+            # Normalize status value
+            if status is None or status == '' or status == 'NULL':
+                normalized_status = None  # Pending
+            elif status in [1, True, '1']:
+                normalized_status = 1  # Approved
+            elif status in [0, False, '0']:
+                normalized_status = 0  # Rejected
+            else:
+                normalized_status = None
+            
+            # Add status text for display
+            if normalized_status is None:
+                upload['status_text'] = 'Pending'
+                upload['status_class'] = 'pending'
+            elif normalized_status == 1:
+                upload['status_text'] = 'Approved'
+                upload['status_class'] = 'approved'
+            elif normalized_status == 0:
+                upload['status_text'] = 'Rejected'
+                upload['status_class'] = 'rejected'
+            else:
+                upload['status_text'] = 'Unknown'
+                upload['status_class'] = 'unknown'
+            
+            # Ensure status_ is normalized
+            upload['status_'] = normalized_status
+            
+            # ✅ NEW STRICT PERMISSION LOGIC
+            # RULE: Only PENDING uploads can be edited/deleted
+            # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
+            
+            can_edit = False
+            can_delete = False
+            
+            if normalized_status is None:
+                # ✅ PENDING - Can edit and delete based on role
+                if role == "admin":
+                    can_edit = True
+                    can_delete = True
+                elif role == "approver":
+                    can_edit = True
+                    can_delete = True
+                elif role == "user":
+                    # User can only edit/delete their own uploads
+                    can_edit = (upload.get('updated_by') == username)
+                    can_delete = (upload.get('updated_by') == username)
+                    
+            elif normalized_status == 1:
+                # ❌ APPROVED - LOCKED (view-only for everyone)
+                can_edit = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow admin to edit/delete approved
+                # if role == "admin":
+                #     can_edit = True
+                #     can_delete = True
+                
+            elif normalized_status == 0:
+                # ❌ REJECTED - LOCKED (view-only for everyone)
+                can_edit = False
+                can_delete = False
+                
+                # 💾 BACKUP: Uncomment to allow admin to edit/delete rejected
+                # if role == "admin":
+                #     can_edit = True
+                #     can_delete = True
+            
+            upload['can_edit'] = can_edit
+            upload['can_delete'] = can_delete
+            # print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Delete: {can_delete}")
+
+        
         return current_app.response_class(
             response=json.dumps(rows, cls=CustomJSONEncoder),
             status=200,
             mimetype="application/json",
         )
+        
     except Exception as e:
         tb = traceback.format_exc()
+        print(f"❌ Error in uploads_list: {e}")
+        print(tb)
         config_obj = current_app.config.get("CONFIG_OBJ")
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         return jsonify({"error": str(e)}), 500
@@ -329,7 +435,7 @@ def uploads_list(cursor, conn):
 def uploads_delete(cursor, conn, uid):
     """Delete an upload record."""
     cursor.execute(
-        "SELECT table_name, uploaded_by FROM excel_uploads WHERE id=%s",
+        "SELECT table_name, updated_by FROM excel_uploads WHERE id=%s",
         (uid,),
     )
     rec = cursor.fetchone()
@@ -337,10 +443,9 @@ def uploads_delete(cursor, conn, uid):
         return jsonify({"error": "Not found"}), 404
 
     if session.get("role") != "admin":
-        if rec["uploaded_by"] != session.get("username"):
+        if rec["updated_by"] != session.get("username"):
             return jsonify({"error": "Forbidden"}), 403
 
     cursor.execute("DELETE FROM excel_uploads WHERE id=%s", (uid,))
     conn.commit()
     return jsonify({"message": "Deleted"})
-
