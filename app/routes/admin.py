@@ -286,7 +286,7 @@ def admin_uploads_list(cursor, conn):
         return jsonify({"error": "Forbidden"}), 403
     
     try:
-        # ✅ Include status_ with CAST for consistent typing
+        #  Include status_ with CAST for consistent typing
         cursor.execute("""
             SELECT 
                 id, 
@@ -302,7 +302,7 @@ def admin_uploads_list(cursor, conn):
         
         uploads = cursor.fetchall()
         
-        # ✅ CONSISTENT STATUS HANDLING
+        #  CONSISTENT STATUS HANDLING
         for upload in uploads:
             status = upload.get('status_')
             
@@ -333,7 +333,7 @@ def admin_uploads_list(cursor, conn):
             # Ensure status_ is normalized
             upload['status_'] = normalized_status
             
-            # ✅ NEW STRICT PERMISSION LOGIC FOR ADMIN
+            #  NEW STRICT PERMISSION LOGIC FOR ADMIN
             # RULE: Only PENDING uploads can be edited/deleted
             # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
             
@@ -341,25 +341,25 @@ def admin_uploads_list(cursor, conn):
             can_delete = False
             
             if normalized_status is None:
-                # ✅ PENDING - Admin can edit and delete
+                #  PENDING - Admin can edit and delete
                 can_edit = True
                 can_delete = True
                 
             elif normalized_status == 1:
-                # ❌ APPROVED - LOCKED (view-only even for admin)
+                #  APPROVED - LOCKED (view-only even for admin)
                 can_edit = False
                 can_delete = False
                 
-                # 💾 BACKUP: Uncomment to allow admin to edit/delete approved uploads
+                #  BACKUP: Uncomment to allow admin to edit/delete approved uploads
                 # can_edit = True
                 # can_delete = True
                 
             elif normalized_status == 0:
-                # ❌ REJECTED - LOCKED (view-only even for admin)
+                #  REJECTED - LOCKED (view-only even for admin)
                 can_edit = False
                 can_delete = False
                 
-                # 💾 BACKUP: Uncomment to allow admin to edit/delete rejected uploads
+                #  BACKUP: Uncomment to allow admin to edit/delete rejected uploads
                 # can_edit = True
                 # can_delete = True
             
@@ -370,7 +370,7 @@ def admin_uploads_list(cursor, conn):
         
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"❌ Error loading admin uploads: {e}")
+        print(f" Error loading admin uploads: {e}")
         config_obj = current_app.config.get("CONFIG_OBJ")
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         return jsonify({"error": str(e)}), 500

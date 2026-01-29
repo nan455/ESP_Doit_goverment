@@ -303,10 +303,10 @@ def api_update_excel_row(cursor, conn):
 @api_bp.route("/api/add_excel_row", methods=["POST"])
 @with_db_connection
 def api_add_excel_row(cursor, conn):
-    """Add a row to a table."""
+    """Add a new row to a table."""
     data = request.get_json(force=True)
     table = data.get("table")
-    new_row = data.get("row")
+    row_data = data.get("row_data") or {}
 
     if not user_can_edit_table(cursor, table):
         return jsonify({"error": "Permission denied"}), 403
@@ -314,14 +314,37 @@ def api_add_excel_row(cursor, conn):
     try:
         cursor.execute(f"SHOW COLUMNS FROM `{table}`")
         cols_info = cursor.fetchall()
-        col_names = [c["Field"] for c in cols_info]
+        db_cols = [c["Field"] for c in cols_info]
 
         insert_cols = []
         insert_vals = []
         placeholders = []
 
-        for col, val in new_row.items():
-            if col not in col_names:
+        # audit on insert
+        if "created_by" in db_cols:
+            insert_cols.append("created_by")
+            insert_vals.append(session.get("username"))
+            placeholders.append("%s")
+        if "created_date" in db_cols:
+            insert_cols.append("created_date")
+            insert_vals.append(datetime.datetime.now())
+            placeholders.append("%s")
+        if "status_" in db_cols:
+            insert_cols.append("status_")
+            insert_vals.append(1)
+            placeholders.append("%s")
+        if "updated_by" in db_cols:
+            insert_cols.append("updated_by")
+            insert_vals.append(session.get("username"))
+            placeholders.append("%s")
+        if "updated_date" in db_cols:
+            insert_cols.append("updated_date")
+            insert_vals.append(datetime.datetime.now())
+            placeholders.append("%s")
+
+        # user-provided
+        for col, val in row_data.items():
+            if col not in db_cols:
                 continue
             if col == "id" or is_audit_column(col):
                 continue
@@ -396,7 +419,7 @@ def get_uploads(cursor, conn):
         role = session.get("role")
         username = session.get("username")
         
-        print(f"\n🔍 Loading uploads for: {username} ({role}) - Dept: {department}")
+        # print(f"\n🔍 Loading uploads for: {username} ({role}) - Dept: {department}")
         
         # ✅ CRITICAL FIX: Always include status_ in SELECT and ensure proper typing
         if role == "admin":
@@ -437,7 +460,7 @@ def get_uploads(cursor, conn):
             upload_id = upload.get('id')
             
             # Debug print
-            print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
+            # print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
             
             # ✅ CRITICAL: Normalize status value to integer
             # Handle NULL, None, empty string, True/False, 0/1, "0"/"1"
@@ -515,7 +538,7 @@ def get_uploads(cursor, conn):
             
             upload['can_edit'] = can_edit
             upload['can_delete'] = can_delete
-            print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Delete: {can_delete}")
+            # print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Delete: {can_delete}")
 
         
         return jsonify(uploads)
@@ -628,3 +651,65 @@ def api_can_edit_upload(cursor, conn):
         
     except Exception as e:
         return jsonify({"can_edit": False, "reason": str(e)}), 500
+    
+@api_bp.route("/api/update_excel_cell", methods=["POST"])
+@with_db_connection
+def api_update_excel_cell(cursor, conn):
+    """
+    Update single cell (used by inline edit + checkbox update)
+    """
+    data = request.get_json(force=True)
+    table = data.get("table")
+    row_id = data.get("id")
+    column = data.get("column")
+    value = data.get("value")
+
+    if not table or not row_id or not column:
+        return jsonify({"error": "Missing table/id/column"}), 400
+
+    if not user_can_edit_table(cursor, table):
+        return jsonify({"error": "Permission denied"}), 403
+
+    try:
+        # detect primary key
+        cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name='PRIMARY'")
+        pk_res = cursor.fetchone()
+        pk_col = pk_res["Column_name"] if pk_res else "id"
+
+        # validate column exists
+        cursor.execute(f"SHOW COLUMNS FROM `{table}`")
+        cols_info = cursor.fetchall()
+        col_names = [c["Field"] for c in cols_info]
+
+        if column not in col_names:
+            return jsonify({"error": "Invalid column"}), 400
+
+        if column == pk_col or is_audit_column(column):
+            return jsonify({"error": "Cannot edit this column"}), 400
+
+        # ✅ IMPORTANT: Convert checkbox approved to int
+        if column == "is_approved":
+            if value in [None, "", "null"]:
+                value = None
+            elif value in [True, "true", "True", 1, "1"]:
+                value = 1
+            elif value in [False, "false", "False", 0, "0"]:
+                value = 0
+
+        # FK support
+        if column == "year_id":
+            value = resolve_year(cursor, value)
+        elif column.endswith("_id"):
+            value = fk_value_to_id(cursor, column, value, LOOKUP_CONFIG)
+
+        sql = f"UPDATE `{table}` SET `{column}`=%s WHERE `{pk_col}`=%s"
+        cursor.execute(sql, (value, row_id))
+        conn.commit()
+
+        return jsonify({"message": "Cell updated"})
+    except Exception as e:
+        tb = traceback.format_exc()
+        config_obj = current_app.config.get("CONFIG_OBJ")
+        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500

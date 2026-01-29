@@ -27,7 +27,7 @@ def login(cursor, conn):
                 "message": "Username and password are required"
             }), 400
 
-        # ✅ CRITICAL: Fetch user from database
+        #  CRITICAL: Fetch user from database
         cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
         user = cursor.fetchone()
 
@@ -43,24 +43,24 @@ def login(cursor, conn):
                 "message": "Invalid username or password"
             }), 401
 
-        # ✅ CRITICAL FIX: Clear session and set correct user data
+        #  CRITICAL FIX: Clear session and set correct user data
         session.clear()
         session.permanent = False
         
-        # ✅ Set session data from DATABASE user object
+        #  Set session data from DATABASE user object
         session["user_id"] = user["id"]
         session["username"] = user["username"]
         session["department"] = user.get("department", "")
         session["role"] = user.get("role", "user")
         
-        # ✅ DEBUG: Print what we're setting
-        print("\n" + "="*50)
-        print("✅ LOGIN SUCCESS - SESSION DATA SET:")
-        print(f"   User ID: {session['user_id']}")
-        print(f"   Username: {session['username']}")
-        print(f"   Department: {session['department']}")
-        print(f"   Role: {session['role']}")
-        print("="*50 + "\n")
+        #  DEBUG: Print what we're setting
+        # print("\n" + "="*50)
+        # print(" LOGIN SUCCESS - SESSION DATA SET:")
+        # print(f"   User ID: {session['user_id']}")
+        # print(f"   Username: {session['username']}")
+        # print(f"   Department: {session['department']}")
+        # print(f"   Role: {session['role']}")
+        # print("="*50 + "\n")
         
         # Determine redirect URL based on role
         role = session["role"]
@@ -82,7 +82,7 @@ def login(cursor, conn):
             
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"❌ Login error: {e}")
+        print(f" Login error: {e}")
         print(tb)
         config_obj = current_app.config.get("CONFIG_OBJ")
         if config_obj:
@@ -98,7 +98,7 @@ def login(cursor, conn):
 @auth_bp.route("/logout", methods=["GET", "POST"])
 def logout():
     """Handle user logout."""
-    print(f"🔓 User {session.get('username')} logging out...")
+    print(f" User {session.get('username')} logging out...")
     session.clear()
     return redirect(url_for("auth.login_page"))
 
@@ -108,12 +108,12 @@ def get_current_user():
     """Get current logged-in user information."""
     try:
         if "username" not in session:
-            print("❌ No username in session")
+            print(" No username in session")
             return jsonify({"error": "Not authenticated"}), 401
         
-        # ✅ DEBUG: Print what's in session
+        #  DEBUG: Print what's in session
         print("\n" + "="*50)
-        print("📋 CURRENT SESSION DATA:")
+        print(" CURRENT SESSION DATA:")
         print(f"   User ID: {session.get('user_id')}")
         print(f"   Username: {session.get('username')}")
         print(f"   Department: {session.get('department')}")
@@ -128,7 +128,7 @@ def get_current_user():
             "email": session.get("email", "")
         })
     except Exception as e:
-        print(f"❌ Error in get_current_user: {e}")
+        print(f" Error in get_current_user: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -181,7 +181,7 @@ def change_password(cursor, conn):
         return jsonify({"error": "Failed to change password. Please try again."}), 500
 
 
-# ✅ NEW: Debug endpoint to check session
+#  NEW: Debug endpoint to check session
 @auth_bp.route("/api/debug_session", methods=["GET"])
 def debug_session():
     """Debug endpoint to see what's in session."""

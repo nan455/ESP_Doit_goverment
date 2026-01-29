@@ -12,6 +12,22 @@
             padding: 0;
             box-sizing: border-box;
         }
+        .btn-warning {
+    background-color: #ffc107;
+    color: #000;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+}
+
+.edit-rejected-btn {
+    margin-left: 5px;
+}
 
         :root {
             --primary: #1e5a8e;
@@ -1033,7 +1049,7 @@ function renderUploads() {
     function viewUpload(id) {
         const upload = uploads.find(u => u.id === id);
         if (upload) {
-            window.open(`/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=view`, '_blank');
+           window.location.href = `/view_excel_data?table=${encodeURIComponent(upload.table_name)}&approval_mode=true`;
         }
     }
 
@@ -1104,6 +1120,34 @@ function renderUploads() {
         loadCurrentUser();
         loadUploads();
     });
+
+
+    window.currentUser = null;
+
+async function loadCurrentUser() {
+    try {
+        const response = await fetch('/api/current_user');
+        if (!response.ok) return null;
+        window.currentUser = await response.json();
+        console.log('✅ User loaded:', window.currentUser);
+        return window.currentUser;
+    } catch (error) {
+        console.error('Error loading user:', error);
+        return null;
+    }
+}
+
+// Auto-load on page load
+(async function() {
+    await loadCurrentUser();
+})();
+
+// ✅ NEW: Function to view table for row-level approval
+function viewForRowApproval(tableName) {
+    window.location.href = `/view_excel_data?table=${tableName}&approval_mode=true`;
+}
+
+console.log('✅ Minimal approval system loaded - approver dashboard');
 </script>
 </body>
 </html>

@@ -7,10 +7,10 @@ def create_app(config_object=None):
     """Create Flask app with proper session configuration."""
     app = Flask(__name__)
     
-    # ✅ CRITICAL FIX 1: Unique secret key for each instance
+    #  CRITICAL FIX 1: Unique secret key for each instance
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
     
-    # ✅ CRITICAL FIX 2: Session configuration
+    #  CRITICAL FIX 2: Session configuration
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SESSION_PERMANENT'] = False
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
@@ -20,11 +20,11 @@ def create_app(config_object=None):
     app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
     app.config['SESSION_REFRESH_EACH_REQUEST'] = False
     
-    # ✅ Store config object
+    #  Store config object
     if config_object:
         app.config['CONFIG_OBJ'] = config_object
     
-    # ✅ CRITICAL FIX 3: Add response headers to prevent caching
+    #  CRITICAL FIX 3: Add response headers to prevent caching
     @app.after_request
     def add_header(response):
         """Add headers to prevent caching of user-specific data."""
@@ -35,7 +35,7 @@ def create_app(config_object=None):
             response.headers['Expires'] = '0'
         return response
     
-    # ✅ CRITICAL FIX 4: Clear session on any authentication error
+    #  CRITICAL FIX 4: Clear session on any authentication error
     @app.errorhandler(401)
     def unauthorized(error):
         """Clear session on unauthorized access."""
@@ -55,7 +55,7 @@ def create_app(config_object=None):
     app.register_blueprint(api_bp)
     app.register_blueprint(approver_bp)
     
-    # ✅ Debug middleware (remove in production)
+    #  Debug middleware (remove in production)
     @app.before_request
     def log_session_info():
         """Log session info for debugging."""

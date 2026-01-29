@@ -302,7 +302,7 @@ def uploads_list(cursor, conn):
         
         # print(f"\n🔍 [data.py] Loading uploads for: {username} ({role}) - Dept: {department}")
         
-        # ✅ CRITICAL FIX: Include status_ with CAST for consistent type
+        #  CRITICAL FIX: Include status_ with CAST for consistent type
         if role == "admin":
             cursor.execute("""
                 SELECT 
@@ -336,7 +336,7 @@ def uploads_list(cursor, conn):
         
         # print(f"📊 Found {len(rows)} uploads")
         
-        # ✅ CONSISTENT STATUS NORMALIZATION
+        #  CONSISTENT STATUS NORMALIZATION
         for upload in rows:
             status = upload.get('status_')
             upload_id = upload.get('id')
@@ -370,7 +370,7 @@ def uploads_list(cursor, conn):
             # Ensure status_ is normalized
             upload['status_'] = normalized_status
             
-            # ✅ NEW STRICT PERMISSION LOGIC
+            #  NEW STRICT PERMISSION LOGIC
             # RULE: Only PENDING uploads can be edited/deleted
             # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
             
@@ -378,7 +378,7 @@ def uploads_list(cursor, conn):
             can_delete = False
             
             if normalized_status is None:
-                # ✅ PENDING - Can edit and delete based on role
+                #  PENDING - Can edit and delete based on role
                 if role == "admin":
                     can_edit = True
                     can_delete = True
@@ -391,21 +391,21 @@ def uploads_list(cursor, conn):
                     can_delete = (upload.get('updated_by') == username)
                     
             elif normalized_status == 1:
-                # ❌ APPROVED - LOCKED (view-only for everyone)
+                #  APPROVED - LOCKED (view-only for everyone)
                 can_edit = False
                 can_delete = False
                 
-                # 💾 BACKUP: Uncomment to allow admin to edit/delete approved
+                #  BACKUP: Uncomment to allow admin to edit/delete approved
                 # if role == "admin":
                 #     can_edit = True
                 #     can_delete = True
                 
             elif normalized_status == 0:
-                # ❌ REJECTED - LOCKED (view-only for everyone)
+                #  REJECTED - LOCKED (view-only for everyone)
                 can_edit = False
                 can_delete = False
                 
-                # 💾 BACKUP: Uncomment to allow admin to edit/delete rejected
+                #  BACKUP: Uncomment to allow admin to edit/delete rejected
                 # if role == "admin":
                 #     can_edit = True
                 #     can_delete = True
@@ -423,29 +423,85 @@ def uploads_list(cursor, conn):
         
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"❌ Error in uploads_list: {e}")
+        print(f" Error in uploads_list: {e}")
         print(tb)
         config_obj = current_app.config.get("CONFIG_OBJ")
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         return jsonify({"error": str(e)}), 500
 
 
-@data_bp.route("/uploads/<int:uid>", methods=["DELETE"])
+# @data_bp.route("/uploads/<int:uid>", methods=["DELETE"])
+# @with_db_connection
+# def uploads_delete(cursor, conn, uid):
+#     """Delete an upload record."""
+#     cursor.execute(
+#         "SELECT table_name, updated_by FROM excel_uploads WHERE id=%s",
+#         (uid,),
+#     )
+#     rec = cursor.fetchone()
+#     if not rec:
+#         return jsonify({"error": "Not found"}), 404
+
+#     if session.get("role") != "admin":
+#         if rec["updated_by"] != session.get("username"):
+#             return jsonify({"error": "Forbidden"}), 403
+
+#     cursor.execute("DELETE FROM excel_uploads WHERE id=%s", (uid,))
+#     conn.commit()
+#     return jsonify({"message": "Deleted"})
+
+@data_bp.route("/uploads/<int:upload_id>", methods=["DELETE"])
 @with_db_connection
-def uploads_delete(cursor, conn, uid):
-    """Delete an upload record."""
-    cursor.execute(
-        "SELECT table_name, updated_by FROM excel_uploads WHERE id=%s",
-        (uid,),
-    )
-    rec = cursor.fetchone()
-    if not rec:
-        return jsonify({"error": "Not found"}), 404
+def uploads_delete(cursor, conn, upload_id):
+    try:
+        # 1️⃣ Fetch upload info
+        cursor.execute(
+            "SELECT table_name, department FROM excel_uploads WHERE id=%s",
+            (upload_id,)
+        )
+        upload = cursor.fetchone()
 
-    if session.get("role") != "admin":
-        if rec["updated_by"] != session.get("username"):
-            return jsonify({"error": "Forbidden"}), 403
+        if not upload:
+            return jsonify({"error": "Upload not found"}), 404
 
-    cursor.execute("DELETE FROM excel_uploads WHERE id=%s", (uid,))
-    conn.commit()
-    return jsonify({"message": "Deleted"})
+        table_name = upload["table_name"]
+
+        # 2️⃣ Permission check
+        if session.get("role") != "admin":
+            if upload["department"] != session.get("department"):
+                return jsonify({"error": "Permission denied"}), 403
+
+        # 3️⃣ Check if table existed BEFORE upload (JSON)
+        cursor.execute("""
+            SELECT COUNT(*) AS cnt
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+              AND table_name = %s
+              AND create_time < (
+                  SELECT uploaded_on FROM excel_uploads WHERE id = %s
+              )
+        """, (table_name, upload_id))
+
+        existed_before = cursor.fetchone()["cnt"] > 0
+
+        # 4️⃣ Delete logic
+        if existed_before:
+            # JSON upload → delete values only
+            cursor.execute(f"DELETE FROM `{table_name}`")
+        else:
+            # Excel upload → drop table
+            cursor.execute(f"DROP TABLE IF EXISTS `{table_name}`")
+            print(f" Table {table_name} dropped as it was created by the upload.")
+
+        # 5️⃣ Remove upload record
+        cursor.execute(
+            "DELETE FROM excel_uploads WHERE id=%s",
+            (upload_id,)
+        )
+
+        conn.commit()
+        return jsonify({"message": "Upload deleted successfully"})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500

@@ -95,6 +95,186 @@
         transition: all 0.2s;
         min-width: 200px;
     }
+    .modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 2% auto;
+    padding: 0;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+.stats-bar {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 30px;
+}
+
+.alert {
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.alert-warning {
+    background: #fff3cd;
+    border: 1px solid #ffecb5;
+    color: #856404;
+}
+
+.alert-info {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+.data-table input,
+.data-table select {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.data-table input:focus,
+.data-table select:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.editable-cell {
+    background-color: #fffef0;
+}
+
+.non-editable-cell {
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+}
+
+.close {
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #999;
+}
+
+.close:hover {
+    color: #333;
+}
+
+/* Row-level status badges in upload list */
+.row-stats {
+    font-size: 12px;
+    margin-top: 5px;
+    color: #666;
+}
+
+.upload-status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.upload-status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.upload-status.approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.upload-status.rejected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.upload-status.reapproval {
+    background: #d1ecf1;
+    color: #0c5460;
+}
 
     .user-info:hover {
         background: var(--gray-100);
@@ -765,6 +945,48 @@
             </div>
         </div>
     </div>
+    <div id="rejectedRowsModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 90%; max-height: 90%; overflow: auto;">
+        <div class="modal-header">
+            <h2>Edit Rejected Rows</h2>
+            <span class="close" onclick="closeRejectedRowsModal()">&times;</span>
+        </div>
+        
+        <div class="modal-body">
+            <div class="alert alert-warning">
+                <strong>⚠️ These rows were rejected by the approver.</strong>
+                Please correct the data and click "Request Re-approval" when done.
+            </div>
+            
+            <div id="rejectionReason" class="alert alert-info" style="display: none;">
+                <strong>Rejection Reason:</strong> <span id="reasonText"></span>
+            </div>
+            
+            <div class="stats-bar">
+                <span>Upload ID: <strong id="modalUploadId"></strong></span>
+                <span>Table: <strong id="modalTableName"></strong></span>
+                <span>Rejected Rows: <strong id="modalRowCount"></strong></span>
+            </div>
+            
+            <!-- Rejected rows table -->
+            <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                <table id="rejectedRowsTable" class="data-table">
+                    <thead id="rejectedRowsHeader"></thead>
+                    <tbody id="rejectedRowsBody"></tbody>
+                </table>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRejectedRowsModal()">
+                    Cancel
+                </button>
+                <button class="btn btn-primary" onclick="requestReapproval()">
+                    ✓ Request Re-approval
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
     <!-- UPLOAD HISTORY -->
     <div class="card">
@@ -862,6 +1084,9 @@
 let registers = [];
 let department = "";
 let currentUser = {};
+let currentUploadId = null;
+let currentTableName = null;
+let rejectedRowsData = [];
 
 // ===== TOAST POPUP =====
 function showToast(msg, type = "success") {
@@ -1112,82 +1337,100 @@ async function uploadRegister() {
 /* LOAD HISTORY */
 async function loadUploadHistory() {
     try {
-        const rows = await fetch(`/uploads?department=${encodeURIComponent(currentUser.department)}`).then(r => r.json());
-        
+        const rows = await fetch(`/uploads`, { credentials: "include" })
+            .then(r => r.json());
+
         console.log("📊 Loaded uploads:", rows);
-        console.log("status_ values:", rows.map(r => r.status_));
-        
+
         const tbody = document.getElementById("uploadHistory");
-        document.getElementById("uploadCount").textContent = `${rows.length} Upload${rows.length !== 1 ? 's' : ''}`;
+        if (!tbody) {
+            console.error("❌ uploadHistory tbody not found in HTML");
+            return;
+        }
+
+        document.getElementById("uploadCount").textContent =
+            `${rows.length} Upload${rows.length !== 1 ? "s" : ""}`;
 
         if (!rows || rows.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:#9ca3af">No upload history found</td></tr>`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center;padding:3rem;color:#9ca3af">
+                        No upload history found
+                    </td>
+                </tr>`;
             return;
         }
 
         tbody.innerHTML = rows.map(r => {
-            // ✅ STATUS DISPLAY FIX
             const status = r.status_;
-            console.log(`Upload #${r.id}: status_ = ${status} (type: ${typeof status})`);
-            
+
+            const isPending = (status === null || status === undefined || status === '' || status === 'NULL');
+            const isApproved = (status === 1 || status === true || status === '1');
+            const isRejected = (status === 0 || status === false || status === '0');
+
+            // ✅ Badge
             let statusBadge = '';
-            
-            // Handle NULL, undefined, empty string
-            if (status === null || status === undefined || status === '' || status === 'NULL') {
-                statusBadge = '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>';
-            }
-            // Handle 1, true, "1"
-            else if (status === 1 || status === true || status === '1') {
-                statusBadge = '<span class="status-badge status-approved"><i class="fas fa-check-circle"></i> Approved</span>';
-            }
-            // Handle 0, false, "0"
-            else if (status === 0 || status === false || status === '0') {
-                statusBadge = '<span class="status-badge status-rejected"><i class="fas fa-times-circle"></i> Rejected</span>';
-            }
-            else {
-                statusBadge = '<span class="status-badge" style="background:#ccc;color:#333">Unknown</span>';
+            if (isPending) {
+                statusBadge = `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
+            } else if (isApproved) {
+                statusBadge = `<span class="status-badge status-approved"><i class="fas fa-check-circle"></i> Approved</span>`;
+            } else if (isRejected) {
+                statusBadge = `<span class="status-badge status-rejected"><i class="fas fa-times-circle"></i> Rejected</span>`;
+            } else {
+                statusBadge = `<span class="status-badge" style="background:#ccc;color:#333">Unknown</span>`;
             }
 
-            // ✅ Edit button based on can_edit from backend
-            const canEdit = r.can_edit === true;
-            
-            const editBtn = canEdit
-                ? `<button class="btn btn-edit btn-sm" onclick="openEditPage('${escapeJs(r.table_name)}', ${r.id})">
-                       <i class="fas fa-edit"></i> Edit
-                   </button>`
-                : `<button class="btn btn-edit btn-sm" disabled style="opacity:0.5;cursor:not-allowed" title="Cannot edit approved uploads">
-                       <i class="fas fa-lock"></i> Locked
-                   </button>`;
-            
-            const deleteBtn = canEdit
-                ? `<button class="btn btn-danger btn-sm" onclick="deleteUpload(${r.id})">
-                       <i class="fas fa-trash"></i> Delete
-                   </button>`
-                : `<button class="btn btn-danger btn-sm" disabled style="opacity:0.5;cursor:not-allowed" title="Cannot delete approved uploads">
-                       <i class="fas fa-lock"></i> Locked
-                   </button>`;
+            // ✅ Buttons
+            let actionButtons = `
+                <button class="btn btn-view btn-sm"
+                    onclick="openViewPage('${escapeJs(r.table_name)}', ${r.id})">
+                    <i class="fas fa-eye"></i> View
+                </button>
+            `;
+
+            // ✅ Pending upload -> allow edit + delete
+            if (isPending) {
+                actionButtons += `
+                    <button class="btn btn-edit btn-sm"
+                        onclick="openEditPage('${escapeJs(r.table_name)}', ${r.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+
+                    <button class="btn btn-danger btn-sm"
+                        onclick="deleteUpload(${r.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                `;
+            }
+
+            // ✅ Rejected upload -> show Edit Rejected Records button
+            if (isRejected) {
+                actionButtons += `
+                    <button class="btn btn-edit btn-sm"
+                        onclick="openRejectedEditPage('${escapeJs(r.table_name)}', ${r.id})">
+                        <i class="fas fa-pen"></i> Edit Rejected Records
+                    </button>
+                `;
+            }
 
             return `
                 <tr>
                     <td><strong>${r.id}</strong></td>
                     <td>${escapeHtml(r.filename)}</td>
                     <td>${escapeHtml(r.table_name)}</td>
-                    <td>${new Date(r.updated_date).toLocaleString()}</td>
+                    <td>${(r.uploaded_on || r.updated_date) ? new Date(r.uploaded_on || r.updated_date).toLocaleString() : "-"}</td>
                     <td>${statusBadge}</td>
                     <td>
                         <div class="action-group">
-                            <button class="btn btn-view btn-sm" onclick="openViewPage('${escapeJs(r.table_name)}', ${r.id})">
-                                <i class="fas fa-eye"></i> View
-                            </button>
-                            ${editBtn}
-                            ${deleteBtn}
+                            ${actionButtons}
                         </div>
                     </td>
                 </tr>
             `;
         }).join('');
+
     } catch (e) {
-        console.error("Failed to load upload history", e);
+        console.error("❌ Failed to load upload history", e);
         showToast("Failed to load upload history", "error");
     }
 }
@@ -1234,6 +1477,288 @@ function escapeJs(text) {
 document.getElementById('changePasswordModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'changePasswordModal') closeChangePasswordModal();
 });
+/**
+ * Open modal to view and edit rejected rows
+ */
+function viewRejectedRows(uploadId) {
+    currentUploadId = uploadId;
+    
+    // Fetch rejected rows from server
+    fetch(`/uploads/${uploadId}/rejected_rows`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            
+            // Store data
+            currentTableName = data.table_name;
+            rejectedRowsData = data.rejected_rows;
+            
+            // Update modal header info
+            document.getElementById('modalUploadId').textContent = data.upload_id;
+            document.getElementById('modalTableName').textContent = data.table_name;
+            document.getElementById('modalRowCount').textContent = data.count;
+            
+            // Build table
+            buildRejectedRowsTable(data.columns, data.rejected_rows);
+            
+            // Show modal
+            document.getElementById('rejectedRowsModal').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading rejected rows:', error);
+            alert('Failed to load rejected rows');
+        });
+}
+
+/**
+ * Build the editable table of rejected rows
+ */
+function buildRejectedRowsTable(columns, rows) {
+    const thead = document.getElementById('rejectedRowsHeader');
+    const tbody = document.getElementById('rejectedRowsBody');
+    
+    // Clear existing content
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // Build header
+    const headerRow = document.createElement('tr');
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col.replace(/_/g, ' ').toUpperCase();
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    
+    // Build rows
+    rows.forEach((row, rowIndex) => {
+        const tr = document.createElement('tr');
+        
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            const value = row[col] !== null ? row[col] : '';
+            
+            // Determine if column is editable
+            const isEditable = !['id', 'upload_id', 'created_by', 'created_date', 
+                                  'updated_by', 'updated_date', 'status_'].includes(col) &&
+                              !col.endsWith('_refno');
+            
+            if (isEditable) {
+                // Create input field
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = value;
+                input.dataset.rowIndex = rowIndex;
+                input.dataset.column = col;
+                input.dataset.rowId = row.id;
+                input.classList.add('editable-cell');
+                
+                // Handle value changes
+                input.addEventListener('change', function() {
+                    updateCellValue(this.dataset.rowId, this.dataset.column, this.value);
+                });
+                
+                td.appendChild(input);
+            } else {
+                // Non-editable cell
+                td.textContent = value;
+                td.classList.add('non-editable-cell');
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Update cell value on the server
+ */
+function updateCellValue(rowId, column, value) {
+    const updates = {};
+    updates[column] = value;
+    
+    fetch('/api/update_rejected_row', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            table: currentTableName,
+            row_id: rowId,
+            upload_id: currentUploadId,
+            updates: updates
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error updating row: ' + data.error);
+        } else {
+            console.log('Row updated successfully');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating cell:', error);
+        alert('Failed to update cell value');
+    });
+}
+
+/**
+ * Request re-approval for edited rows
+ */
+function requestReapproval() {
+    if (!currentUploadId) {
+        alert('No upload selected');
+        return;
+    }
+    
+    if (!confirm('Submit these edited rows for re-approval?')) {
+        return;
+    }
+    
+    fetch(`/uploads/${currentUploadId}/request_reapproval`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert(data.message);
+            closeRejectedRowsModal();
+            loadUploads(); // Refresh the uploads list
+        }
+    })
+    .catch(error => {
+        console.error('Error requesting reapproval:', error);
+        alert('Failed to request re-approval');
+    });
+}
+
+/**
+ * Close the rejected rows modal
+ */
+function closeRejectedRowsModal() {
+    document.getElementById('rejectedRowsModal').style.display = 'none';
+    currentUploadId = null;
+    currentTableName = null;
+    rejectedRowsData = [];
+}
+
+/**
+ * Modified loadUploads to show row statistics
+ */
+function loadUploads() {
+    fetch('/uploads')
+        .then(response => response.json())
+        .then(uploads => {
+            const tbody = document.getElementById('uploadsTableBody');
+            tbody.innerHTML = '';
+            
+            uploads.forEach(upload => {
+                const tr = document.createElement('tr');
+                
+                // Build status display with row stats
+                let statusHtml = `
+                    <span class="upload-status ${upload.status_class}">
+                        ${upload.status_text}
+                    </span>
+                `;
+                
+                if (upload.total_rows > 0) {
+                    statusHtml += `
+                        <div class="row-stats">
+                            ✓ ${upload.approved_rows} approved | 
+                            ✗ ${upload.rejected_rows} rejected | 
+                            ⏳ ${upload.pending_rows} pending
+                        </div>
+                    `;
+                }
+                
+                // Build actions
+                let actionsHtml = '';
+                
+                if (upload.can_view_rejected && upload.rejected_rows > 0) {
+                    actionsHtml += `
+                        <button class="btn btn-warning" onclick="viewRejectedRows(${upload.id})">
+                            📝 Edit Rejected Rows (${upload.rejected_rows})
+                        </button>
+                    `;
+                }
+                
+                if (upload.can_request_reapproval) {
+                    actionsHtml += `
+                        <button class="btn btn-info" onclick="requestReapprovalDirect(${upload.id})">
+                            🔄 Request Re-approval
+                        </button>
+                    `;
+                }
+                
+                if (upload.can_delete) {
+                    actionsHtml += `
+                        <button class="btn btn-danger" onclick="deleteUpload(${upload.id})">
+                            🗑️ Delete
+                        </button>
+                    `;
+                }
+                
+                tr.innerHTML = `
+                    <td>${upload.id}</td>
+                    <td>${upload.filename}</td>
+                    <td>${upload.table_name}</td>
+                    <td>${upload.uploaded_by}</td>
+                    <td>${upload.uploaded_on}</td>
+                    <td>${statusHtml}</td>
+                    <td>${actionsHtml}</td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading uploads:', error);
+        });
+}
+
+/**
+ * Direct re-approval request (without editing)
+ */
+function requestReapprovalDirect(uploadId) {
+    if (!confirm('Request re-approval for this upload?')) {
+        return;
+    }
+    
+    fetch(`/uploads/${uploadId}/request_reapproval`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert(data.message);
+            loadUploads();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to request re-approval');
+    });
+}
+
+// Load uploads on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadUploads();
+});
+
 </script>
 </body>
 </html>
