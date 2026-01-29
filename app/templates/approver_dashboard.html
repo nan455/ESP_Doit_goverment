@@ -1076,11 +1076,12 @@ function renderUploads() {
         loadUploads();
     });
     function editUpload(id) {
-        const upload = uploads.find(u => u.id === id);
-        if (upload) {
-            window.location.href = `/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=edit&upload_id=${id}`;
-        }
+    const upload = uploads.find(u => u.id === id);
+    if (upload) {
+        window.location.href =
+            `/view_excel_data?table=${encodeURIComponent(upload.table_name)}&mode=edit&upload_id=${id}&approval_mode=true`;
     }
+}
 
     function viewUpload(id) {
         const upload = uploads.find(u => u.id === id);

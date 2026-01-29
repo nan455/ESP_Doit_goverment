@@ -407,6 +407,9 @@
                     <button class="btn btn-download" onclick="downloadExcel()">
                         <i class="fas fa-download"></i> Download
                     </button>
+                    <button class="btn btn-save" id="btnReapprove" style="display:none;" onclick="requestReApproval()">
+    <i class="fas fa-paper-plane"></i> Request Re-Approval
+</button>
                     <button class="btn btn-add" id="btnAddRow" style="display:none;" onclick="addNewRow()">
                         <i class="fas fa-plus"></i> Add Row
                     </button>
@@ -438,25 +441,46 @@
         <span id="statusText">Saved</span>
     </div>
 
-  <script>
+ <script>
     const tableName = "{{ table }}";
     const pageMode = "{{ mode }}";
     const isEditable = (pageMode === "edit");
 
+    // ✅ URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const uploadId = urlParams.get("upload_id");
+    const approvalMode = urlParams.get("approval_mode") === "true";   // opened by approver
+    const onlyRejected = urlParams.get("only_rejected") === "true";   // opened by user rejected edit
+    if (onlyRejected && isEditable) {
+
+        const btn = document.getElementById("btnReapprove");
+        if (btn) btn.style.display = "inline-flex";
+    }
+
+    // ✅ approver/admin approval UI only in approval_mode
+    const canApproveReject = approvalMode;
+
     document.getElementById("tableNameLabel").innerText = tableName;
     document.getElementById("modeLabel").innerText = pageMode.toUpperCase();
-    
+
     const modeBadge = document.getElementById("modeBadge");
     if (isEditable) {
         modeBadge.className = "badge badge-edit";
         modeBadge.innerHTML = '<i class="fas fa-edit"></i> <span>EDIT MODE</span>';
-        document.getElementById("btnAddRow").style.display = "inline-flex";
+
+        // ✅ Allow Add Row only for approver flow
+        if (canApproveReject) {
+            document.getElementById("btnAddRow").style.display = "inline-flex";
+        } else {
+            document.getElementById("btnAddRow").style.display = "none";
+        }
     } else {
         modeBadge.className = "badge badge-view";
         modeBadge.innerHTML = '<i class="fas fa-eye"></i> <span>VIEW MODE</span>';
+        document.getElementById("btnAddRow").style.display = "none";
     }
 
-    let metadataLabels = {};  
+    let metadataLabels = {};
     let tableHeaders = [];
     let lookupCache = {};
     let pkColumn = "id";
@@ -470,23 +494,32 @@
         }
 
         try {
-            const pkRes = await fetch(`/api/primary_key?table=${tableName}`);
+            // 1) primary key
+            const pkRes = await fetch(`/api/primary_key?table=${encodeURIComponent(tableName)}`);
             const pkData = await pkRes.json();
             pkColumn = pkData.pk || "id";
 
-            const mRes = await fetch(`/api/column_metadata?table=${tableName}`);
+            // 2) metadata labels
+            const mRes = await fetch(`/api/column_metadata?table=${encodeURIComponent(tableName)}`);
             metadataLabels = await mRes.json() || {};
 
-            const colRes = await fetch(`/api/table_columns?table=${tableName}`);
+            // 3) columns
+            const colRes = await fetch(`/api/table_columns?table=${encodeURIComponent(tableName)}`);
             tableHeaders = await colRes.json();
 
+            // 4) lookup lists for *_id cols
             const fkCols = tableHeaders.filter(c => c.endsWith("_id"));
             for (const col of fkCols) {
-                const lk = await fetch(`/api/lookup?col=${col}`);
+                const lk = await fetch(`/api/lookup?col=${encodeURIComponent(col)}`);
                 lookupCache[col] = await lk.json();
             }
 
-            const rowsRes = await fetch(`/api/excel_data?table=${tableName}`);
+            // 5) rows with upload_id + only_rejected support
+            let apiUrl = `/api/excel_data?table=${encodeURIComponent(tableName)}`;
+            if (uploadId) apiUrl += `&upload_id=${encodeURIComponent(uploadId)}`;
+            if (onlyRejected) apiUrl += `&only_rejected=true`;
+
+            const rowsRes = await fetch(apiUrl);
             const rows = await rowsRes.json();
 
             renderTable(rows);
@@ -507,7 +540,7 @@
 
     // ===================== HELPERS =====================
     function pretty(col) {
-        return metadataLabels[col] 
+        return metadataLabels[col]
             || col.replace(/_/g, " ").replace(/\b\w/g, s => s.toUpperCase());
     }
 
@@ -537,18 +570,17 @@
         return null;
     }
 
-    // ===================== BULK SELECT =====================
+    // ===================== BULK SELECT (approver only) =====================
     async function bulkApprove(status) {
-        // status: 1 => accept, 0 => reject, null => clear pending
-        const rows = document.querySelectorAll("#excelTable tbody tr");
+        if (!canApproveReject) return;
 
+        const rows = document.querySelectorAll("#excelTable tbody tr");
         for (const tr of rows) {
             const pk = tr.dataset.pk;
             if (!pk) continue;
 
             await updateApproval(pk, status);
 
-            // update UI instantly
             const acceptCb = tr.querySelector(".approve-accept");
             const rejectCb = tr.querySelector(".approve-reject");
 
@@ -571,6 +603,9 @@
 
     // ===================== RENDER TABLE =====================
     function renderTable(rows) {
+        // ✅ remove previous bulk controls if reloaded
+        document.querySelectorAll(".bulk-controls").forEach(x => x.remove());
+
         let html = "<thead><tr>";
         tableHeaders.forEach(h => html += `<th>${pretty(h)}</th>`);
         if (isEditable) html += "<th style='width: 220px;'>Actions</th>";
@@ -589,19 +624,13 @@
             return;
         }
 
-        // ✅ ADD BULK CONTROLS ABOVE TABLE (only edit mode)
-        if (isEditable && tableHeaders.includes("is_approved")) {
+        // ✅ BULK controls only for approver
+        if (isEditable && canApproveReject && tableHeaders.includes("is_approved")) {
             const bulkHtml = `
-                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-                    <button class="btn btn-save" onclick="bulkApprove(1)">
-                         Select All Accept
-                    </button>
-                    <button class="btn btn-delete" onclick="bulkApprove(0)">
-                        ❌ Select All Reject
-                    </button>
-                    <button class="btn btn-add" onclick="bulkApprove(null)">
-                         Clear All (Pending)
-                    </button>
+                <div class="bulk-controls" style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
+                    <button class="btn btn-save" onclick="bulkApprove(1)">✅ Select All Accept</button>
+                    <button class="btn btn-delete" onclick="bulkApprove(0)">❌ Select All Reject</button>
+                    <button class="btn btn-add" onclick="bulkApprove(null)">⏳ Clear All (Pending)</button>
                 </div>
             `;
             document.querySelector(".search-section").insertAdjacentHTML("afterend", bulkHtml);
@@ -620,12 +649,8 @@
                     if (isApprovalColumn(col)) {
                         const st = approvalStatus(val);
                         html += `
-                            <td style="font-weight:600;">
-                                ${
-                                    st === 1 ? "✅ Accepted" :
-                                    st === 0 ? "❌ Rejected" :
-                                    "⏳ Pending"
-                                }
+                            <td style="font-weight:600;text-align:center;">
+                                ${st === 1 ? "✅ Accepted" : st === 0 ? "❌ Rejected" : "⏳ Pending"}
                             </td>
                         `;
                     } else {
@@ -644,29 +669,40 @@
                     }
                     else if (isApprovalColumn(col)) {
 
-                        const st = approvalStatus(val);
-                        const acceptChecked = st === 1;
-                        const rejectChecked = st === 0;
+                        // ✅ user edit mode: show text only
+                        if (!canApproveReject) {
+                            const st = approvalStatus(val);
+                            html += `
+                                <td style="font-weight:600;text-align:center;">
+                                    ${st === 1 ? "✅ Accepted" : st === 0 ? "❌ Rejected" : "⏳ Pending"}
+                                </td>
+                            `;
+                        } else {
+                            // ✅ approver: show accept/reject checkboxes
+                            const st = approvalStatus(val);
+                            const acceptChecked = st === 1;
+                            const rejectChecked = st === 0;
 
-                        html += `
-                            <td style="text-align:center;">
-                                <label style="margin-right:10px; cursor:pointer;">
-                                    <input type="checkbox"
-                                        class="approve-accept"
-                                        ${acceptChecked ? "checked" : ""}
-                                        onchange="onAcceptRejectChange('${pkVal}', 1, this)">
-                                    ✅
-                                </label>
+                            html += `
+                                <td style="text-align:center;">
+                                    <label style="margin-right:10px; cursor:pointer;">
+                                        <input type="checkbox"
+                                            class="approve-accept"
+                                            ${acceptChecked ? "checked" : ""}
+                                            onchange="onAcceptRejectChange('${pkVal}', 1, this)">
+                                        ✅
+                                    </label>
 
-                                <label style="cursor:pointer;">
-                                    <input type="checkbox"
-                                        class="approve-reject"
-                                        ${rejectChecked ? "checked" : ""}
-                                        onchange="onAcceptRejectChange('${pkVal}', 0, this)">
-                                    ❌
-                                </label>
-                            </td>
-                        `;
+                                    <label style="cursor:pointer;">
+                                        <input type="checkbox"
+                                            class="approve-reject"
+                                            ${rejectChecked ? "checked" : ""}
+                                            onchange="onAcceptRejectChange('${pkVal}', 0, this)">
+                                        ❌
+                                    </label>
+                                </td>
+                            `;
+                        }
                     }
                     else {
                         html += `
@@ -687,9 +723,11 @@
                             <i class="fas fa-save"></i> Save
                         </button>
 
-                        <button class="btn btn-delete" onclick="deleteRow('${pkVal}')">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
+                        ${canApproveReject ? `
+                            <button class="btn btn-delete" onclick="deleteRow('${pkVal}')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        ` : ""}
                     </td>`;
             }
 
@@ -702,23 +740,23 @@
 
     // ===================== APPROVAL CHECKBOX HANDLING =====================
     async function onAcceptRejectChange(pk, changedValue, checkbox) {
+        if (!canApproveReject) return;
+
         const tr = checkbox.closest("tr");
         const acceptCb = tr.querySelector(".approve-accept");
         const rejectCb = tr.querySelector(".approve-reject");
 
         let newValue = null;
 
-        // if accept clicked
         if (changedValue === 1) {
             if (checkbox.checked) {
                 rejectCb.checked = false;
                 newValue = 1;
             } else {
-                newValue = null; // cleared
+                newValue = null;
             }
         }
 
-        // if reject clicked
         if (changedValue === 0) {
             if (checkbox.checked) {
                 acceptCb.checked = false;
@@ -732,11 +770,17 @@
         if (ok) flash("Saved successfully");
     }
 
+    // ✅ Approver approval must use /api/set_row_status
     async function updateApproval(pk, value) {
-        const res = await fetch("/api/update_excel_cell", {
+        const res = await fetch("/api/set_row_status", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ table: tableName, id: pk, column: "is_approved", value })
+            body: JSON.stringify({
+                table: tableName,
+                id: pk,
+                status: value,
+                upload_id: uploadId
+            })
         });
 
         const out = await res.json();
@@ -816,16 +860,12 @@
 
             if (isNonEditable(col)) continue;
 
-            // approval column already saves instantly
+            // do not save approval from Save button
             if (isApprovalColumn(col)) continue;
 
-            let value = "";
+            if (col.endsWith("_id")) continue;
 
-            if (col.endsWith("_id")) {
-                continue;
-            } else {
-                value = td.innerText.trim();
-            }
+            const value = td.innerText.trim();
 
             await fetch("/api/update_excel_cell", {
                 method: "POST",
@@ -837,8 +877,10 @@
         flash("Row saved successfully");
     }
 
-    // ===================== ADD ROW =====================
+    // ===================== ADD ROW (approver only) =====================
     function addNewRow() {
+        if (!canApproveReject) return;
+
         const tbody = document.getElementById("tableBody");
         const tr = document.createElement("tr");
         tr.style.background = "#f0fdf4";
@@ -880,6 +922,8 @@
     }
 
     async function saveNewRow(tr) {
+        if (!canApproveReject) return;
+
         const cells = tr.querySelectorAll("td");
         const rowData = {};
 
@@ -892,7 +936,7 @@
                 const sel = cell.querySelector("select");
                 if (sel && sel.value) rowData[col] = parseInt(sel.value);
             } else if (isApprovalColumn(col)) {
-                // default pending (null)
+                // default pending
             } else {
                 const value = cell.innerText.trim();
                 if (value) rowData[col] = value;
@@ -914,8 +958,10 @@
         }
     }
 
-    // ===================== DELETE ROW =====================
+    // ===================== DELETE ROW (approver only) =====================
     async function deleteRow(pk) {
+        if (!canApproveReject) return;
+
         if (!confirm("Are you sure you want to delete this row?")) return;
 
         await fetch("/api/delete_excel_row", {
@@ -956,9 +1002,40 @@
     }
 
     function downloadExcel() {
-        window.location.href = `/download_excel?table=${tableName}&filename=${tableName}.xlsx`;
+        window.location.href = `/download_excel?table=${encodeURIComponent(tableName)}&filename=${tableName}.xlsx`;
     }
+    async function requestReApproval() {
+    if (!uploadId) {
+        alert("upload_id missing");
+        return;
+    }
+
+    if (!confirm("Request Re-Approval? This will send corrected rejected records to approver again.")) return;
+
+    const res = await fetch("/api/request_reapproval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            upload_id: uploadId,
+            table: tableName
+        })
+    });
+
+    const out = await res.json();
+    if (!res.ok) {
+        alert(out.error || "Failed to request reapproval");
+        return;
+    }
+
+    flash("Re-Approval Requested ✅");
+
+    setTimeout(() => {
+        window.location.href = "/user_dashboard";
+    }, 1200);
+}
+
 </script>
+
 
 
 </body>
