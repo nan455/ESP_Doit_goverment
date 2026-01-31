@@ -71,7 +71,7 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
     if "username" not in session:
         return {"error": "Unauthorized"}, 401
 
-    # Load DB columns
+    # ===================== 1) Load DB columns =====================
     try:
         cursor.execute(f"SHOW COLUMNS FROM `{table}`")
         cols_info = cursor.fetchall()
@@ -82,7 +82,7 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         return {"error": f"Target table error: {e}"}, 400
 
-    # Read Excel file
+    # ===================== 2) Read Excel file =====================
     try:
         df = pd.read_excel(file_obj)
     except Exception as e:
@@ -96,10 +96,10 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
 
     df.fillna("", inplace=True)
 
-    # Load column metadata (REAL MAPPING)
+    # ===================== 3) Metadata mapping =====================
     header_to_col = load_metadata_for_table(cursor, table)
 
-    # Fallback mappings (safe)
+    # fallback safe mapping
     for c in db_cols:
         header_to_col[c.lower()] = c
         header_to_col[c.replace("_", " ").lower()] = c
@@ -107,6 +107,7 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
     inserted_rows = []
     errors = []
 
+    # ===================== 4) Prepare insert rows =====================
     for idx, row in df.iterrows():
         excel_row_num = idx + 2
         row_data = {}
@@ -115,28 +116,27 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
             for header in df.columns:
                 raw_val = row[header]
 
-                # Skip empty values
+                # skip empty cell
                 if str(raw_val).strip() == "":
                     continue
 
-                # Normalize header
-                key = header.strip().lower()
+                key = str(header).strip().lower()
 
-                # Find correct DB column
+                # map excel header -> db col
                 col = header_to_col.get(key)
                 if not col:
-                    col = header_to_col.get(header.strip().replace(" ", "_").lower())
+                    col = header_to_col.get(str(header).strip().replace(" ", "_").lower())
 
                 if not col or col not in db_cols:
                     continue
 
-                # Skip audit/refno columns
+                # skip audit/refno columns
                 if col == "id" or is_audit_column(col) or is_refno_column(col):
                     continue
 
                 value = raw_val
 
-                # FK and year special handlers
+                # FK and year handlers
                 if col == "year_id":
                     value = resolve_year(cursor, value)
                 elif col.endswith("_id"):
@@ -147,55 +147,48 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
 
                 row_data[col] = value
 
-            # Skip empty row
+            # skip empty row
             if not row_data:
                 continue
 
-            # Add audit columns
+            # audit columns
             if "created_by" in db_cols:
                 row_data.setdefault("created_by", session.get("username"))
             if "created_date" in db_cols:
                 row_data.setdefault("created_date", datetime.datetime.now())
-            if "status_" in db_cols:
-                row_data.setdefault("status_", 1)
             if "updated_by" in db_cols:
                 row_data.setdefault("updated_by", session.get("username"))
             if "updated_date" in db_cols:
                 row_data.setdefault("updated_date", datetime.datetime.now())
+
+            # ✅ IMPORTANT: default pending
+            if "status_" in db_cols:
+                row_data["status_"] = None
+            if "is_approved" in db_cols:
+                row_data["is_approved"] = None
 
             inserted_rows.append((excel_row_num, row_data))
 
         except Exception as e:
             tb = traceback.format_exc()
             errors.append(f"Row {excel_row_num}: {e}")
-            # log detailed error for admin
             config_obj = current_app.config.get("CONFIG_OBJ")
             log_error_db(session.get("username"), request.path, f"Row {excel_row_num}: {e}", tb, config_obj)
 
-    # Error handling
+    # ===================== 5) Error handling =====================
     if errors:
         return {"error": "; ".join(errors)}, 400
 
     if not inserted_rows:
         return {"error": "No valid rows to insert"}, 400
 
-    # Bulk insert into DB
+    # ===================== 6) Insert excel_uploads first =====================
     try:
-        all_cols = sorted({c for _, rd in inserted_rows for c in rd.keys()})
-        col_list = ", ".join(f"`{c}`" for c in all_cols)
-        placeholders = ", ".join(["%s"] * len(all_cols))
-
-        sql = f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})"
-        values = [tuple(rd.get(c) for c in all_cols) for _, rd in inserted_rows]
-
-        cursor.executemany(sql, values)
-
-        # Log upload
         cursor.execute(
             """
             INSERT INTO excel_uploads
-            (filename, table_name, updated_by, department)
-            VALUES (%s, %s, %s, %s)
+            (filename, table_name, updated_by, department, status_)
+            VALUES (%s, %s, %s, %s, NULL)
             """,
             (
                 secure_filename(file_obj.filename),
@@ -205,8 +198,35 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
             ),
         )
 
+        # ✅ this is upload_id
+        upload_id = cursor.lastrowid
+
+        # ===================== 7) Add upload_id into transaction rows =====================
+        if "upload_id" in db_cols:
+            for i, (excel_row_num, row_data) in enumerate(inserted_rows):
+                row_data["upload_id"] = upload_id
+                inserted_rows[i] = (excel_row_num, row_data)
+        else:
+            return {
+                "error": f"Table `{table}` does not have column upload_id. Please add it in transaction tables."
+            }, 400
+
+        # ===================== 8) Bulk insert transaction table rows =====================
+        all_cols = sorted({c for _, rd in inserted_rows for c in rd.keys()})
+        col_list = ", ".join(f"`{c}`" for c in all_cols)
+        placeholders = ", ".join(["%s"] * len(all_cols))
+
+        sql = f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})"
+        values = [tuple(rd.get(c) for c in all_cols) for _, rd in inserted_rows]
+
+        cursor.executemany(sql, values)
+
         conn.commit()
-        return {"message": f"Inserted {len(values)} rows into {table}"}, 200
+
+        return {
+            "message": f"Inserted {len(values)} rows into {table}",
+            "upload_id": upload_id
+        }, 200
 
     except Exception as e:
         tb = traceback.format_exc()
@@ -505,3 +525,4 @@ def uploads_delete(cursor, conn, upload_id):
     except Exception as e:
         conn.rollback()
         return jsonify({"error": str(e)}), 500
+    

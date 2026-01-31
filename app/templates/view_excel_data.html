@@ -445,6 +445,7 @@
     const tableName = "{{ table }}";
     const pageMode = "{{ mode }}";
     const isEditable = (pageMode === "edit");
+    let totalRows = 0;
 
     // ✅ URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -553,7 +554,7 @@
     function isNonEditable(col) {
         return (
             col === pkColumn ||
-            ["created_by", "created_date", "updated_by", "updated_date", "status_"].includes(col)
+            ["created_by", "created_date", "updated_by", "updated_date", "status_","upload_id"].includes(col)
         );
     }
 
@@ -738,6 +739,35 @@
         document.getElementById("excelTable").innerHTML = html;
     }
 
+     // ===================== APPROVAL CHECKBOX VALIDATION =====================
+    function validateAllCheckboxes() {
+        const checkboxes = document.querySelectorAll('.approval-checkbox');
+        const totalCheckboxes = checkboxes.length;
+        
+        if (totalCheckboxes === 0) {
+            return true; // No checkboxes means no validation needed
+        }
+        
+        // Count checked boxes
+        let checkedCount = 0;
+        checkboxes.forEach(cb => {
+            if (cb.checked) checkedCount++;
+        });
+        
+        // We expect exactly totalRows checkboxes to be checked (one per row)
+        const allChecked = (checkedCount === totalRows);
+        
+        // Emit custom event that approver_dashboard can listen to
+        window.parent.postMessage({
+            type: 'CHECKBOX_VALIDATION',
+            allChecked: allChecked,
+            checkedCount: checkedCount,
+            totalRows: totalRows
+        }, '*');
+        
+        return allChecked;
+    }
+
     // ===================== APPROVAL CHECKBOX HANDLING =====================
     async function onAcceptRejectChange(pk, changedValue, checkbox) {
         if (!canApproveReject) return;
@@ -767,10 +797,13 @@
         }
 
         const ok = await updateApproval(pk, newValue);
-        if (ok) flash("Saved successfully");
+        if (ok) {
+            flash("Saved successfully");
+            // Revalidate after each change
+            validateAllCheckboxes();
+        }
     }
 
-    // ✅ Approver approval must use /api/set_row_status
     async function updateApproval(pk, value) {
         const res = await fetch("/api/set_row_status", {
             method: "POST",

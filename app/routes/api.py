@@ -854,3 +854,89 @@ def api_request_reapproval(cursor, conn):
     except Exception as e:
         conn.rollback()
         return jsonify({"error": str(e)}), 500
+    
+
+
+@api_bp.route("/api/check_upload_review_status")
+@with_db_connection
+def api_check_upload_review_status(cursor, conn):
+    """
+    Approver validation:
+    - If any row is_approved IS NULL => pending exists => block approve/reject
+    - If any row is_approved = 0 => rejected exists => block approve (allow reject)
+    Works for ALL transaction tables.
+    """
+    upload_id = request.args.get("upload_id")
+
+    if not upload_id:
+        return jsonify({"error": "Missing upload_id"}), 400
+
+    try:
+        # find transaction table
+        cursor.execute("SELECT table_name FROM excel_uploads WHERE id=%s", (upload_id,))
+        up = cursor.fetchone()
+        if not up:
+            return jsonify({"error": "Upload not found"}), 404
+
+        table = up["table_name"]
+
+        # ✅ check pending rows (NULL)
+        cursor.execute(f"""
+            SELECT COUNT(*) AS pending_count
+            FROM `{table}`
+            WHERE upload_id=%s AND is_approved IS NULL
+        """, (upload_id,))
+        pending_count = int(cursor.fetchone()["pending_count"])
+
+        # ✅ check rejected rows
+        cursor.execute(f"""
+            SELECT COUNT(*) AS rejected_count
+            FROM `{table}`
+            WHERE upload_id=%s AND is_approved = 0
+        """, (upload_id,))
+        rejected_count = int(cursor.fetchone()["rejected_count"])
+
+        return jsonify({
+            "pending_count": pending_count,
+            "rejected_count": rejected_count,
+            "has_pending": pending_count > 0,
+            "has_rejected": rejected_count > 0
+        })
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        config_obj = current_app.config.get("CONFIG_OBJ")
+        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        return jsonify({"error": str(e)}), 500
+
+@api_bp.route("/api/check_all_rows_reviewed")
+@with_db_connection
+def check_all_rows_reviewed(cursor, conn):
+    upload_id = request.args.get("upload_id")
+    if not upload_id:
+        return jsonify({"error": "Missing upload_id"}), 400
+
+    try:
+        # get table for upload
+        cursor.execute("SELECT table_name FROM excel_uploads WHERE id=%s", (upload_id,))
+        up = cursor.fetchone()
+        if not up:
+            return jsonify({"error": "Upload not found"}), 404
+
+        table = up["table_name"]
+
+        # ✅ IMPORTANT: check is_approved (not status_)
+        cursor.execute(f"""
+            SELECT COUNT(*) AS pending_count
+            FROM `{table}`
+            WHERE is_approved IS NULL
+        """)
+        pending_count = int(cursor.fetchone()["pending_count"])
+
+        return jsonify({
+            "pending_count": pending_count,
+            "has_pending": pending_count > 0
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
