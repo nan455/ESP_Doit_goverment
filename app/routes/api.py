@@ -34,16 +34,16 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-@api_bp.route("/api/current_user")
-@with_db_connection
-def api_current_user(cursor, conn):
-    """Get current user profile."""
-    cursor.execute(
-        "SELECT id, username, department, role "
-        "FROM users WHERE username=%s",
-        (session.get("username"),),
-    )
-    return jsonify(cursor.fetchone())
+# @api_bp.route("/api/current_user")
+# @with_db_connection
+# def api_current_user(cursor, conn):
+#     """Get current user profile."""
+#     cursor.execute(
+#         "SELECT id, username, department, role "
+#         "FROM users WHERE username=%s",
+#         (session.get("username"),),
+#     )
+#     return jsonify(cursor.fetchone())
 
 
 @api_bp.route("/api/transaction_tables")

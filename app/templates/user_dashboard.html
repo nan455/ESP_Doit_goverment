@@ -1127,8 +1127,8 @@ async function loadUploadHistory() {
     try {
         const rows = await fetch(`/uploads?department=${encodeURIComponent(currentUser.department)}`).then(r => r.json());
         
-        console.log("📊 Loaded uploads:", rows);
-        console.log("status_ values:", rows.map(r => r.status_));
+        // console.log("📊 Loaded uploads:", rows);
+        // console.log("status_ values:", rows.map(r => r.status_));
         
         const tbody = document.getElementById("uploadTableBody");
         document.getElementById("uploadCount").textContent = `${rows.length} Upload${rows.length !== 1 ? 's' : ''}`;

@@ -2088,11 +2088,11 @@ function showConfirm(msg, yesFn) {
         window.addEventListener('DOMContentLoaded', initAdmin);
 
         function viewExcel(table) {
-            window.open(`/view_excel_data?table=${decodeURIComponent(table)}`, '_blank');
+            window.location.href = `/view_excel_data?table=${decodeURIComponent(table)}`;
         }
 
         function editExcel(table) {
-            window.open(`/view_excel_data?table=${decodeURIComponent(table)}&mode=edit`, '_blank');
+            window.location.href = `/view_excel_data?table=${decodeURIComponent(table)}&mode=edit`;
         }
 
         function downloadExcel(filename, table) {

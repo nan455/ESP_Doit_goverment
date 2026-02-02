@@ -989,7 +989,7 @@ async function approveUpload(id) {
 
         // RULE 2: if any rejected row => cannot approve upload
         if (checkData.has_rejected) {
-            return showToast(`❌ Cannot approve. ${checkData.rejected_count} row(s) rejected. Please Reject upload.`, "error");
+            return showToast(`❌ Cannot approve ${checkData.rejected_count} row(s) rejected. Please Reject upload.`, "error");
         }
 
         showConfirm("Approve this upload?", async () => {

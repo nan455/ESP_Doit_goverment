@@ -446,6 +446,16 @@
     const pageMode = "{{ mode }}";
     const isEditable = (pageMode === "edit");
     let totalRows = 0;
+    // ✅ Hide these columns only in VIEW mode
+const HIDE_IN_VIEW = [
+    "created_by",
+    "created_date",
+    "updated_by",
+    "updated_date",
+    "status_",
+    "upload_id"
+];
+
 
     // ✅ URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -608,7 +618,11 @@
         document.querySelectorAll(".bulk-controls").forEach(x => x.remove());
 
         let html = "<thead><tr>";
-        tableHeaders.forEach(h => html += `<th>${pretty(h)}</th>`);
+        tableHeaders.forEach(h => {
+    if (!isEditable && HIDE_IN_VIEW.includes(h)) return; // ✅ hide in view mode
+    html += `<th>${pretty(h)}</th>`;
+});
+
         if (isEditable) html += "<th style='width: 220px;'>Actions</th>";
         html += "</tr></thead><tbody id='tableBody'>";
 
@@ -642,6 +656,7 @@
             html += `<tr data-pk="${pkVal}">`;
 
             tableHeaders.forEach(col => {
+                if (!isEditable && HIDE_IN_VIEW.includes(col)) return; // ✅ hide in view mode
                 const val = r[col] ?? "";
 
                 // VIEW MODE OR NON-EDITABLE
@@ -1024,19 +1039,42 @@
     }
 
     function goBack() {
-        fetch("/api/current_user", { credentials: 'include' })
-            .then(r => r.json())
-            .then(u => window.location.href =
-                u.role === "admin" ? "/admin_dashboard" :
-                u.role === "approver" ? "/approver_dashboard" :
-                "/user_dashboard"
-            )
-            .catch(() => window.location.href = "/user_dashboard");
+    // ✅ if opened from dashboard, browser back works correctly
+    if (document.referrer && document.referrer.includes(window.location.host)) {
+        window.history.back();
+        return;
     }
 
+    // fallback redirect based on role
+    fetch("/api/current_user", { credentials: 'include' })
+        .then(r => r.json())
+        .then(u => {
+            if (u.role === "admin") window.location.href = "/admin_dashboard";
+            else if (u.role === "approver") window.location.href = "/approver_dashboard";
+            else window.location.href = "/user_dashboard";
+        })
+        .catch(() => window.location.href = "/user_dashboard");
+}
+
+
     function downloadExcel() {
-        window.location.href = `/download_excel?table=${encodeURIComponent(tableName)}&filename=${tableName}.xlsx`;
-    }
+    const hideCols = [
+        "created_by",
+        "created_date",
+        "updated_by",
+        "updated_date",
+        "status_",
+        "upload_id",
+        "is_approved"
+    ];
+
+    const params = new URLSearchParams();
+    params.append("table", tableName);
+    params.append("filename", `${tableName}.xlsx`);
+    params.append("hide_cols", hideCols.join(","));
+
+    window.location.href = `/download_excel?${params.toString()}`;
+}
     async function requestReApproval() {
     if (!uploadId) {
         alert("upload_id missing");

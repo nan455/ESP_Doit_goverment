@@ -272,14 +272,22 @@ def upload_accident_register(cursor, conn):
 @data_bp.route("/download_excel")
 @with_db_connection
 def download_excel(cursor, conn):
-    """Download table data as Excel."""
+    """Download table data as Excel (hide selected columns)."""
     table = request.args.get("table")
     filename = request.args.get("filename", f"{table}.xlsx")
+
+    # ✅ columns to hide sent from frontend
+    hide_cols = request.args.get("hide_cols", "")
+    hide_cols = [c.strip() for c in hide_cols.split(",") if c.strip()]
 
     try:
         cursor.execute(f"SELECT * FROM `{table}`")
         rows = cursor.fetchall()
         df = pd.DataFrame(rows)
+
+        # ✅ Drop hidden columns safely
+        if not df.empty and hide_cols:
+            df.drop(columns=[c for c in hide_cols if c in df.columns], inplace=True)
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
@@ -297,6 +305,7 @@ def download_excel(cursor, conn):
         config_obj = current_app.config.get("CONFIG_OBJ")
         log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         return jsonify({"error": str(e)}), 500
+
 
 
 @data_bp.route("/uploads", methods=["GET"])
@@ -412,23 +421,23 @@ def uploads_list(cursor, conn):
                     
             elif normalized_status == 1:
                 #  APPROVED - LOCKED (view-only for everyone)
-                can_edit = False
-                can_delete = False
+                # can_edit = False
+                # can_delete = False
                 
                 #  BACKUP: Uncomment to allow admin to edit/delete approved
-                # if role == "admin":
-                #     can_edit = True
-                #     can_delete = True
+                if role == "admin":
+                    can_edit = True
+                    can_delete = True
                 
             elif normalized_status == 0:
                 #  REJECTED - LOCKED (view-only for everyone)
-                can_edit = False
-                can_delete = False
+                # can_edit = False
+                # can_delete = False
                 
                 #  BACKUP: Uncomment to allow admin to edit/delete rejected
-                # if role == "admin":
-                #     can_edit = True
-                #     can_delete = True
+                if role == "admin":
+                    can_edit = True
+                    can_delete = True
             
             upload['can_edit'] = can_edit
             upload['can_delete'] = can_delete
