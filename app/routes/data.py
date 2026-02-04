@@ -67,128 +67,174 @@ def download_register_template(cursor, conn):
 
 
 def _process_upload_transaction(cursor, conn, table, file_obj):
-    """Process uploaded transaction Excel file."""
+    """
+    Process uploaded transaction Excel file.
+
+    Enforces:
+    - Duplicate detection BEFORE UPSERT
+    - Popup confirmation when replace_existing is FALSE
+    - upload_id mapping
+    - is_approved reset to NULL
+    """
+
     if "username" not in session:
         return {"error": "Unauthorized"}, 401
 
-    # ===================== 1) Load DB columns =====================
+    replace_existing = (
+        request.form.get("replace_existing", "false").lower() == "true"
+    )
+
+    # -------------------------------------------------
+    # Load DB columns
+    # -------------------------------------------------
     try:
         cursor.execute(f"SHOW COLUMNS FROM `{table}`")
         cols_info = cursor.fetchall()
         db_cols = [c["Field"] for c in cols_info]
     except Exception as e:
         tb = traceback.format_exc()
-        config_obj = current_app.config.get("CONFIG_OBJ")
-        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        log_error_db(
+            session.get("username"),
+            request.path,
+            str(e),
+            tb,
+            current_app.config["CONFIG_OBJ"]
+        )
         return {"error": f"Target table error: {e}"}, 400
 
-    # ===================== 2) Read Excel file =====================
+    # -------------------------------------------------
+    # Read Excel
+    # -------------------------------------------------
     try:
         df = pd.read_excel(file_obj)
     except Exception as e:
         tb = traceback.format_exc()
-        config_obj = current_app.config.get("CONFIG_OBJ")
-        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        log_error_db(
+            session.get("username"),
+            request.path,
+            str(e),
+            tb,
+            current_app.config["CONFIG_OBJ"]
+        )
         return {"error": f"Unable to read Excel: {e}"}, 400
 
     if df.empty:
-        return {"error": "File is empty"}, 400
+        return {"error": "Uploaded file is empty"}, 400
 
     df.fillna("", inplace=True)
 
-    # ===================== 3) Metadata mapping =====================
+    # -------------------------------------------------
+    # Metadata mapping
+    # -------------------------------------------------
     header_to_col = load_metadata_for_table(cursor, table)
-
-    # fallback safe mapping
     for c in db_cols:
-        header_to_col[c.lower()] = c
-        header_to_col[c.replace("_", " ").lower()] = c
+        header_to_col.setdefault(c.lower(), c)
+        header_to_col.setdefault(c.replace("_", " ").lower(), c)
 
-    inserted_rows = []
-    errors = []
+    parsed_rows = []
 
-    # ===================== 4) Prepare insert rows =====================
-    for idx, row in df.iterrows():
-        excel_row_num = idx + 2
+    # -------------------------------------------------
+    # Parse Excel rows
+    # -------------------------------------------------
+    for _, row in df.iterrows():
         row_data = {}
 
-        try:
-            for header in df.columns:
-                raw_val = row[header]
-
-                # skip empty cell
-                if str(raw_val).strip() == "":
-                    continue
-
-                key = str(header).strip().lower()
-
-                # map excel header -> db col
-                col = header_to_col.get(key)
-                if not col:
-                    col = header_to_col.get(str(header).strip().replace(" ", "_").lower())
-
-                if not col or col not in db_cols:
-                    continue
-
-                # skip audit/refno columns
-                if col == "id" or is_audit_column(col) or is_refno_column(col):
-                    continue
-
-                value = raw_val
-
-                # FK and year handlers
-                if col == "year_id":
-                    value = resolve_year(cursor, value)
-                elif col.endswith("_id"):
-                    value = fk_value_to_id(cursor, col, value, LOOKUP_CONFIG)
-                else:
-                    if isinstance(value, str):
-                        value = value.strip() or None
-
-                row_data[col] = value
-
-            # skip empty row
-            if not row_data:
+        for header in df.columns:
+            raw_val = row[header]
+            if str(raw_val).strip() == "":
                 continue
 
-            # audit columns
-            if "created_by" in db_cols:
-                row_data.setdefault("created_by", session.get("username"))
-            if "created_date" in db_cols:
-                row_data.setdefault("created_date", datetime.datetime.now())
-            if "updated_by" in db_cols:
-                row_data.setdefault("updated_by", session.get("username"))
-            if "updated_date" in db_cols:
-                row_data.setdefault("updated_date", datetime.datetime.now())
+            key = header.strip().lower()
+            col = header_to_col.get(key) or header_to_col.get(key.replace(" ", "_"))
 
-            # ✅ IMPORTANT: default pending
-            if "status_" in db_cols:
-                row_data["status_"] = None
-            if "is_approved" in db_cols:
-                row_data["is_approved"] = None
+            if not col or col not in db_cols:
+                continue
 
-            inserted_rows.append((excel_row_num, row_data))
+            if col == "id" or is_audit_column(col) or is_refno_column(col):
+                continue
+
+            value = raw_val
+
+            if col == "year_id":
+                value = resolve_year(cursor, value)
+            elif col.endswith("_id"):
+                value = fk_value_to_id(cursor, col, value, LOOKUP_CONFIG)
+            elif isinstance(value, str):
+                value = value.strip() or None
+
+            row_data[col] = value
+
+        if row_data:
+            parsed_rows.append(row_data)
+
+    if not parsed_rows:
+        return {"error": "No valid rows found to insert"}, 400
+
+    # -------------------------------------------------
+    # DUPLICATE CHECK 
+    # -------------------------------------------------
+    if not replace_existing:
+        try:
+            cursor.execute(f"SHOW INDEX FROM `{table}` WHERE Non_unique = 0")
+            indexes = cursor.fetchall()
+
+            unique_cols = [
+                i["Column_name"]
+                for i in indexes
+                if i["Key_name"] != "PRIMARY"
+            ]
+
+            if unique_cols:
+                sample = parsed_rows[0]
+                where = []
+                values = []
+
+                for col in unique_cols:
+                    if col in sample:
+                        where.append(f"`{col}` = %s")
+                        values.append(sample[col])
+
+                if where:
+                    sql = f"""
+                        SELECT 1
+                        FROM `{table}`
+                        WHERE {' AND '.join(where)}
+                        LIMIT 1
+                    """
+                    cursor.execute(sql, values)
+                    if cursor.fetchone():
+                        return {
+                            "error": "Data already exists. Replace existing data?"
+                        }, 409
 
         except Exception as e:
             tb = traceback.format_exc()
-            errors.append(f"Row {excel_row_num}: {e}")
-            config_obj = current_app.config.get("CONFIG_OBJ")
-            log_error_db(session.get("username"), request.path, f"Row {excel_row_num}: {e}", tb, config_obj)
+            log_error_db(
+                session.get("username"),
+                request.path,
+                str(e),
+                tb,
+                current_app.config["CONFIG_OBJ"]
+            )
+            return {"error": "Duplicate validation failed"}, 500
 
-    # ===================== 5) Error handling =====================
-    if errors:
-        return {"error": "; ".join(errors)}, 400
-
-    if not inserted_rows:
-        return {"error": "No valid rows to insert"}, 400
-
-    # ===================== 6) Insert excel_uploads first =====================
+    # -------------------------------------------------
+    # INSERT + UPSERT (TRANSACTION)
+    # -------------------------------------------------
     try:
+        now = datetime.datetime.now()
+        if replace_existing:
+            cursor.execute("""
+                DELETE FROM excel_uploads
+                WHERE table_name = %s AND department = %s
+            """, (table, session.get("department")))
+
+        # ✅ insert new upload log
         cursor.execute(
             """
             INSERT INTO excel_uploads
-            (filename, table_name, updated_by, department, status_)
-            VALUES (%s, %s, %s, %s, NULL)
+            (filename, table_name, uploaded_by, department)
+            VALUES (%s, %s, %s, %s)
             """,
             (
                 secure_filename(file_obj.filename),
@@ -197,43 +243,71 @@ def _process_upload_transaction(cursor, conn, table, file_obj):
                 session.get("department"),
             ),
         )
-
-        # ✅ this is upload_id
         upload_id = cursor.lastrowid
 
-        # ===================== 7) Add upload_id into transaction rows =====================
-        if "upload_id" in db_cols:
-            for i, (excel_row_num, row_data) in enumerate(inserted_rows):
-                row_data["upload_id"] = upload_id
-                inserted_rows[i] = (excel_row_num, row_data)
-        else:
-            return {
-                "error": f"Table `{table}` does not have column upload_id. Please add it in transaction tables."
-            }, 400
+        # ---- Check columns
+        all_cols = set()
+        for r in parsed_rows:
+            all_cols.update(r.keys())
 
-        # ===================== 8) Bulk insert transaction table rows =====================
-        all_cols = sorted({c for _, rd in inserted_rows for c in rd.keys()})
-        col_list = ", ".join(f"`{c}`" for c in all_cols)
+        if "upload_id" in db_cols:
+            all_cols.add("upload_id")
+        if "is_approved" in db_cols:
+            all_cols.add("is_approved")
+        if "updated_by" in db_cols:
+            all_cols.add("updated_by")
+        if "updated_date" in db_cols:
+            all_cols.add("updated_date")
+
+        all_cols = sorted(all_cols)
+
+        insert_cols = ", ".join(f"`{c}`" for c in all_cols)
         placeholders = ", ".join(["%s"] * len(all_cols))
 
-        sql = f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})"
-        values = [tuple(rd.get(c) for c in all_cols) for _, rd in inserted_rows]
+        update_cols = []
+        for c in all_cols:
+            if c.endswith("_num") or c in (
+                "updated_by", "updated_date", "upload_id", "is_approved"
+            ):
+                update_cols.append(f"`{c}` = VALUES(`{c}`)")
+
+        update_sql = ", ".join(update_cols)
+
+        sql = f"""
+            INSERT INTO `{table}` ({insert_cols})
+            VALUES ({placeholders})
+            ON DUPLICATE KEY UPDATE
+            {update_sql}
+        """
+
+        values = []
+        for r in parsed_rows:
+            row = dict(r)
+            row["upload_id"] = upload_id
+            row["is_approved"] = None
+            row["updated_by"] = session.get("username")
+            row["updated_date"] = now
+
+            values.append(tuple(row.get(c) for c in all_cols))
 
         cursor.executemany(sql, values)
-
         conn.commit()
 
         return {
-            "message": f"Inserted {len(values)} rows into {table}",
+            "message": f"{len(values)} rows uploaded successfully",
             "upload_id": upload_id
         }, 200
 
     except Exception as e:
-        tb = traceback.format_exc()
-        config_obj = current_app.config.get("CONFIG_OBJ")
-        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
         conn.rollback()
-        print(traceback.format_exc())
+        tb = traceback.format_exc()
+        log_error_db(
+            session.get("username"),
+            request.path,
+            str(e),
+            tb,
+            current_app.config.get("CONFIG_OBJ")
+        )
         return {"error": str(e)}, 500
 
 
@@ -416,8 +490,8 @@ def uploads_list(cursor, conn):
                     can_delete = True
                 elif role == "user":
                     # User can only edit/delete their own uploads
-                    can_edit = (upload.get('updated_by') == username)
-                    can_delete = (upload.get('updated_by') == username)
+                    can_edit = True
+                    can_delete = True
                     
             elif normalized_status == 1:
                 #  APPROVED - LOCKED (view-only for everyone)

@@ -755,16 +755,27 @@
         <div class="divider"></div>
 
         <!-- UPLOAD SECTION -->
-        <div class="upload-section">
-            <h4><i class="fas fa-cloud-upload-alt"></i> Upload Register File</h4>
-            <div class="controls">
-                <input type="file" id="uploadFile" class="input" accept=".xlsx">
-                <button class="btn btn-success" onclick="uploadRegister()">
-                    <i class="fas fa-upload"></i> Upload Register
-                </button>
-            </div>
-            
+    <div class="upload-section">
+        <h4><i class="fas fa-cloud-upload-alt"></i> Upload Register File</h4>
+        <div class="controls">
+            <!-- Accept both Excel and JSON -->
+            <input type="file" id="uploadFile" class="input" accept=".xlsx,.json">
+            <button class="btn btn-success" onclick="uploadRegister()">
+                <i class="fas fa-upload"></i> Upload Register
+            </button>
         </div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="replaceExisting">
+            <label for="replaceExisting" style="font-size:14px;font-weight:500;color:#334155">
+                Replace existing data if already uploaded
+            </label>
+        </div></div>
+
+    <div class="controls">
+        <!-- year / region selects here -->
+        <button class="btn btn-info" onclick="viewReport()">📊 Generate Report</button>
+    </div>
+    </div>
     </div>
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 15px 0;">
     <button class="btn btn-sm btn-view" onclick="setUploadFilter('all')">📁 All</button>
@@ -1092,6 +1103,35 @@ function viewData() {
 }
 
 /* UPLOAD REGISTER */
+// async function uploadRegister() {
+//     const table = document.getElementById("registerSelect").value;
+//     const file = document.getElementById("uploadFile").files[0];
+
+//     if (!table) return showToast("Please select a register.", "error");
+//     if (!file) return showToast("Please choose a file.", "error");
+
+//     const fd = new FormData();
+//     fd.append("file", file);
+//     fd.append("table_name", table);
+
+//     try {
+//         const res = await fetch("/upload_transaction", {
+//             method: "POST",
+//             body: fd
+//         });
+
+//         const out = await res.json();
+//         if (res.ok) {
+//             showToast(out.message || "Upload successful!", "success");
+//             document.getElementById("uploadFile").value = "";
+//             loadUploadHistory();
+//         } else {
+//             showToast(out.error || "Upload failed", "error");
+//         }
+//     } catch (e) {
+//         showToast("Upload failed", "error");
+//     }
+// }
 async function uploadRegister() {
     const table = document.getElementById("registerSelect").value;
     const file = document.getElementById("uploadFile").files[0];
@@ -1099,9 +1139,12 @@ async function uploadRegister() {
     if (!table) return showToast("Please select a register.", "error");
     if (!file) return showToast("Please choose a file.", "error");
 
+    const replace = document.getElementById("replaceExisting")?.checked || false;
+
     const fd = new FormData();
     fd.append("file", file);
     fd.append("table_name", table);
+    fd.append("replace_existing", replace);
 
     try {
         const res = await fetch("/upload_transaction", {
@@ -1110,18 +1153,31 @@ async function uploadRegister() {
         });
 
         const out = await res.json();
+
         if (res.ok) {
             showToast(out.message || "Upload successful!", "success");
             document.getElementById("uploadFile").value = "";
+            document.getElementById("replaceExisting").checked = false;
             loadUploadHistory();
-        } else {
+        }
+        else if (res.status === 409) {
+            showConfirm(
+                out.error || "Duplicate data exists. Replace existing data?",
+                () => {
+                    document.getElementById("replaceExisting").checked = true;
+                    uploadRegister(); // retry
+                }
+            );
+        }
+        else {
             showToast(out.error || "Upload failed", "error");
         }
-    } catch (e) {
+    }
+    catch (e) {
+        console.error(e);
         showToast("Upload failed", "error");
     }
-}
-
+    }
 /* LOAD HISTORY */
 async function loadUploadHistory() {
     try {
@@ -1236,6 +1292,17 @@ function escapeJs(text) {
 function openEditPage(table, uploadId) {
     window.location.href =
         `/view_excel_data?table=${encodeURIComponent(table)}&mode=edit&upload_id=${uploadId}`;
+}
+function viewReport() {
+    const table = document.getElementById("registerSelect").value;
+
+    if (!table) {
+        showToast("Please select a register.", "error");
+        return;
+    }
+
+    window.location.href =
+        `/report/view?table=${encodeURIComponent(table)}`;
 }
 
 

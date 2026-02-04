@@ -58,7 +58,7 @@ def get_rejected_rows_api(cursor, conn, upload_id):
         # Get rejected rows (status_ = 0)
         cursor.execute(f"""
             SELECT * FROM `{table_name}` 
-            WHERE upload_id = %s AND status_ = 0
+            WHERE upload_id = %s AND is_approved = 0
             ORDER BY id
         """, (upload_id,))
         

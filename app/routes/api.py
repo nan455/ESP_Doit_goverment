@@ -141,7 +141,7 @@ def api_excel_data(cursor, conn):
 
         # ✅ show only rejected rows for user fix
         if only_rejected:
-            sql += " AND status_ = 0"
+            sql += " AND is_approved = 0"
 
         # ordering
         cursor.execute(f"SHOW COLUMNS FROM `{table}` LIKE 'id'")
@@ -449,7 +449,7 @@ def get_uploads(cursor, conn):
                     uploaded_by, 
                     department, 
                     uploaded_on,
-                    CAST(status_ AS SIGNED) as status_
+                    CAST(is_approved AS SIGNED) as is_approved
                 FROM excel_uploads 
                 ORDER BY uploaded_on DESC
             """)
@@ -462,7 +462,7 @@ def get_uploads(cursor, conn):
                     uploaded_by, 
                     department, 
                     uploaded_on,
-                    CAST(status_ AS SIGNED) as status_
+                    CAST(is_approved AS SIGNED) as is_approved
                 FROM excel_uploads 
                 WHERE department = %s 
                 ORDER BY uploaded_on DESC
@@ -474,89 +474,142 @@ def get_uploads(cursor, conn):
         
         # ✅ CONSISTENT STATUS HANDLING FOR ALL DASHBOARDS
         for upload in uploads:
-            status = upload.get('status_')
-            upload_id = upload.get('id')
-            
-            # Debug print
-            # print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
-            
-            # ✅ CRITICAL: Normalize status value to integer
-            # Handle NULL, None, empty string, True/False, 0/1, "0"/"1"
+            status = upload.get("is_approved")
+
             if status is None or status == '' or status == 'NULL':
-                normalized_status = None  # Pending
+                normalized = None
             elif status in [1, True, '1']:
-                normalized_status = 1  # Approved
+                normalized = 1
             elif status in [0, False, '0']:
-                normalized_status = 0  # Rejected
+                normalized = 0
             else:
-                normalized_status = None  # Default to pending
-            
-            # ✅ Add status_text for consistency across all dashboards
-            if normalized_status is None:
-                upload['status_text'] = 'Pending'
-                upload['status_class'] = 'pending'
-            elif normalized_status == 1:
-                upload['status_text'] = 'Approved'
-                upload['status_class'] = 'approved'
-            elif normalized_status == 0:
-                upload['status_text'] = 'Rejected'
-                upload['status_class'] = 'rejected'
+                normalized = None
+
+            # text
+            if normalized is None:
+                upload["status_text"] = "Pending"
+                upload["status_class"] = "pending"
+            elif normalized == 1:
+                upload["status_text"] = "Approved"
+                upload["status_class"] = "approved"
             else:
-                upload['status_text'] = 'Unknown'
-                upload['status_class'] = 'unknown'
-            
-            # ✅ Ensure status_ is set to normalized value for frontend
-            upload['status_'] = normalized_status
-            
-            # ✅ NEW STRICT PERMISSION LOGIC
-            # RULE: Only PENDING uploads can be edited/deleted
-            # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
-            
+                upload["status_text"] = "Rejected"
+                upload["status_class"] = "rejected"
+
+            upload["is_approved"] = normalized
+
+            # permission
             can_edit = False
             can_delete = False
-            
-            if normalized_status is None:
-                # ✅ PENDING - Can edit/delete based on role
-                if role == "admin":
-                    can_edit = True
-                    can_delete = True
-                elif role == "approver":
+
+            if normalized is None:
+                if role in ["admin", "approver"]:
                     can_edit = True
                     can_delete = True
                 elif role == "user":
-                    # User can only edit/delete their own uploads
-                    can_edit = (upload.get('uploaded_by') == username)
-                    can_delete = (upload.get('uploaded_by') == username)
-                    
-            elif normalized_status == 1:
-                # ❌ APPROVED - LOCKED (view-only for everyone)
+                    can_edit = (upload.get("uploaded_by") == username)
+                    can_delete = (upload.get("uploaded_by") == username)
+
+            elif normalized == 1:
                 can_edit = False
                 can_delete = False
-                
-                # 💾 BACKUP: Uncomment to allow admin/approver override
-                # if role == "admin":
-                #     can_edit = True
-                #     can_delete = True
-                # elif role == "approver":
-                #     can_edit = True
-                #     can_delete = True
-                
-            elif normalized_status == 0:
-                # ❌ REJECTED - LOCKED (view-only for everyone)
-                can_edit = False
-                can_delete = False
-                
-                # 💾 BACKUP: Uncomment to allow admin/approver override
-                # if role == "admin":
-                #     can_edit = True
-                #     can_delete = True
-                # elif role == "approver":
-                #     can_edit = True
-                #     can_delete = True
+
+            elif normalized == 0:
+                # rejected: allow user fix
+                if role in ["admin", "approver"]:
+                    can_edit = True
+                    can_delete = False
+                elif role == "user":
+                    can_edit = (upload.get("uploaded_by") == username)
+                    can_delete = False
+
+            upload["can_edit"] = can_edit
+            upload["can_delete"] = can_delete
+
+        # for upload in uploads:
+        #     status = upload.get('status_')
+        #     upload_id = upload.get('id')
             
-            upload['can_edit'] = can_edit
-            upload['can_delete'] = can_delete
-            # print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Delete: {can_delete}")
+        #     # Debug print
+        #     # print(f"   Upload #{upload_id}: status_ = {status} (type: {type(status)})")
+            
+        #     # ✅ CRITICAL: Normalize status value to integer
+        #     # Handle NULL, None, empty string, True/False, 0/1, "0"/"1"
+        #     if status is None or status == '' or status == 'NULL':
+        #         normalized_status = None  # Pending
+        #     elif status in [1, True, '1']:
+        #         normalized_status = 1  # Approved
+        #     elif status in [0, False, '0']:
+        #         normalized_status = 0  # Rejected
+        #     else:
+        #         normalized_status = None  # Default to pending
+            
+        #     # ✅ Add status_text for consistency across all dashboards
+        #     if normalized_status is None:
+        #         upload['status_text'] = 'Pending'
+        #         upload['status_class'] = 'pending'
+        #     elif normalized_status == 1:
+        #         upload['status_text'] = 'Approved'
+        #         upload['status_class'] = 'approved'
+        #     elif normalized_status == 0:
+        #         upload['status_text'] = 'Rejected'
+        #         upload['status_class'] = 'rejected'
+        #     else:
+        #         upload['status_text'] = 'Unknown'
+        #         upload['status_class'] = 'unknown'
+            
+        #     # ✅ Ensure status_ is set to normalized value for frontend
+        #     upload['status_'] = normalized_status
+            
+        #     # ✅ NEW STRICT PERMISSION LOGIC
+        #     # RULE: Only PENDING uploads can be edited/deleted
+        #     # RULE: Approved and Rejected uploads are VIEW-ONLY (locked)
+            
+        #     can_edit = False
+        #     can_delete = False
+            
+        #     if normalized_status is None:
+        #         # ✅ PENDING - Can edit/delete based on role
+        #         if role == "admin":
+        #             can_edit = True
+        #             can_delete = True
+        #         elif role == "approver":
+        #             can_edit = True
+        #             can_delete = True
+        #         elif role == "user":
+        #             # User can only edit/delete their own uploads
+        #             can_edit = (upload.get('uploaded_by') == username)
+        #             can_delete = (upload.get('uploaded_by') == username)
+                    
+        #     elif normalized_status == 1:
+        #         # ❌ APPROVED - LOCKED (view-only for everyone)
+        #         can_edit = False
+        #         can_delete = False
+                
+        #         # 💾 BACKUP: Uncomment to allow admin/approver override
+        #         # if role == "admin":
+        #         #     can_edit = True
+        #         #     can_delete = True
+        #         # elif role == "approver":
+        #         #     can_edit = True
+        #         #     can_delete = True
+                
+        #     elif normalized_status == 0:
+        #         # ❌ REJECTED - LOCKED (view-only for everyone)
+        #         can_edit = False
+        #         can_delete = False
+                
+        #         # 💾 BACKUP: Uncomment to allow admin/approver override
+        #         # if role == "admin":
+        #         #     can_edit = True
+        #         #     can_delete = True
+        #         # elif role == "approver":
+        #         #     can_edit = True
+        #         #     can_delete = True
+            
+        #     upload['can_edit'] = can_edit
+        #     upload['can_delete'] = can_delete
+        #     # print(f"      → Status: {upload['status_text']}, Can Edit: {can_edit}, Can Delete: {can_delete}")
 
         
         return jsonify(uploads)
@@ -571,74 +624,67 @@ def get_uploads(cursor, conn):
 
 def user_can_edit_upload(cursor, upload_id: str, username: str, role: str) -> tuple:
     """
-    Check if user can edit an upload based on approval status.
-    
-    Returns: (can_edit: bool, reason: str)
-    
-    NEW STRICT Rules:
-    - Pending (status_ IS NULL): User, Admin, Approver can edit
-    - Approved (status_ = 1): LOCKED - Nobody can edit (view-only)
-    - Rejected (status_ = 0): LOCKED - Nobody can edit (view-only)
+    Permission check based on excel_uploads.is_approved
+
+    Rules:
+    - Pending (is_approved IS NULL): editable (admin/approver + user-own)
+    - Approved (is_approved = 1): LOCKED
+    - Rejected (is_approved = 0): user can edit to fix and re-request reapproval
     """
+
     try:
-        # Get upload info with CAST to ensure integer type
         cursor.execute("""
-            SELECT id, uploaded_by, department, CAST(status_ AS SIGNED) as status_, table_name
+            SELECT 
+                id,
+                uploaded_by,
+                department,
+                table_name,
+                CAST(is_approved AS SIGNED) AS is_approved
             FROM excel_uploads
             WHERE id = %s
         """, (upload_id,))
         
         upload = cursor.fetchone()
-        
+
         if not upload:
             return False, "Upload not found"
-        
-        # ✅ NEW STRICT LOGIC:
-        # Only PENDING can be edited
-        # Approved and Rejected are both LOCKED
-        
-        status = upload.get('status_')
-        
-        # If approved OR rejected, LOCKED
-        if status == 1:
-            # 💾 BACKUP: Uncomment to allow admin/approver to edit approved
-            # if role == "admin":
-            #     return True, "Admin can edit approved uploads"
-            # if role == "approver":
-            #     return True, "Approver can edit approved uploads"
-            
+
+        appr = upload.get("is_approved")  # NULL / 1 / 0
+
+        # ✅ APPROVED -> locked
+        if appr == 1:
             return False, "Cannot edit approved uploads (locked)"
-        
-        if status == 0:
-            # 💾 BACKUP: Uncomment to allow admin/approver to edit rejected
-            # if role == "admin":
-            #     return True, "Admin can edit rejected uploads"
-            # if role == "approver":
-            #     return True, "Approver can edit rejected uploads"
-            
-            return False, "Cannot edit rejected uploads (locked)"
-        
-        # Only PENDING uploads can be edited
-        # Admin can edit any pending upload
-        if role == "admin":
-            return True, "Admin access"
-        
-        # Approver can edit any pending upload
-        if role == "approver":
-            return True, "Approver access"
-        
-        # User can only edit their own pending uploads
-        if role == "user":
-            if upload['uploaded_by'] == username:
-                return True, "User owns this upload"
-            else:
+
+        # ✅ PENDING -> editable for admin/approver, user only if owner
+        if appr is None:
+            if role == "admin":
+                return True, "Admin can edit pending uploads"
+            if role == "approver":
+                return True, "Approver can edit pending uploads"
+            if role == "user":
+                if upload.get("uploaded_by") == username:
+                    return True, "User owns pending upload"
                 return False, "Can only edit your own uploads"
-        
-        return False, "No permission"
-        
+            return False, "No permission"
+
+        # ✅ REJECTED -> editable for user to fix (recommended)
+        if appr == 0:
+            if role == "admin":
+                return True, "Admin can edit rejected uploads"
+            if role == "approver":
+                return True, "Approver can edit rejected uploads"
+            if role == "user":
+                if upload.get("uploaded_by") == username:
+                    return True, "User can edit rejected upload (fix + reapproval)"
+                return False, "Can only edit your own rejected uploads"
+            return False, "No permission"
+
+        return False, "Unknown approval state"
+
     except Exception as e:
         print(f"❌ Error checking edit permission: {e}")
         return False, str(e)
+
 
 
 @api_bp.route("/api/can_edit_upload", methods=["POST"])
@@ -758,14 +804,18 @@ def api_update_excel_cell(cursor, conn):
 @with_db_connection
 def api_set_row_status(cursor, conn):
     """
-    Approver sets row approval:
-    status_=1 approve, status_=0 reject, status_=NULL pending
-    and sync is_approved also
+    Approver sets row approval ONLY using is_approved:
+
+    is_approved = NULL  -> Pending
+    is_approved = 1     -> Approved
+    is_approved = 0     -> Rejected
+
+    NOTE: status_ will NOT be updated anymore.
     """
     data = request.get_json(force=True)
     table = data.get("table")
     row_id = data.get("id")
-    status_val = data.get("status")  # 1 / 0 / None
+    is_approved_val = data.get("status")  # frontend sends 1 / 0 / null
 
     if session.get("role") not in ["admin", "approver"]:
         return jsonify({"error": "Permission denied"}), 403
@@ -773,32 +823,36 @@ def api_set_row_status(cursor, conn):
     if not table or not row_id:
         return jsonify({"error": "Missing table/id"}), 400
 
-    cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name='PRIMARY'")
-    pk_res = cursor.fetchone()
-    pk_col = pk_res["Column_name"] if pk_res else "id"
+    try:
+        # detect pk
+        cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name='PRIMARY'")
+        pk_res = cursor.fetchone()
+        pk_col = pk_res["Column_name"] if pk_res else "id"
 
-    # map to is_approved also
-    if status_val in [None, "", "null", "NULL"]:
-        status_val = None
-        is_approved = None
-    elif str(status_val) == "1":
-        status_val = 1
-        is_approved = 1
-    else:
-        status_val = 0
-        is_approved = 0
+        # normalize incoming
+        if is_approved_val in [None, "", "null", "NULL"]:
+            is_approved_val = None
+        elif str(is_approved_val) == "1":
+            is_approved_val = 1
+        else:
+            is_approved_val = 0
 
-    sql = f"""
-        UPDATE `{table}`
-        SET status_=%s,
-            is_approved=%s,
-            updated_by=%s,
-            updated_date=NOW()
-        WHERE `{pk_col}`=%s
-    """
-    cursor.execute(sql, (status_val, is_approved, session.get("username"), row_id))
-    conn.commit()
-    return jsonify({"message": "Row status updated"})
+        sql = f"""
+            UPDATE `{table}`
+            SET is_approved=%s,
+                updated_by=%s,
+                updated_date=NOW()
+            WHERE `{pk_col}`=%s
+        """
+        cursor.execute(sql, (is_approved_val, session.get("username"), row_id))
+        conn.commit()
+
+        return jsonify({"message": "Row approval updated", "is_approved": is_approved_val})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
 @api_bp.route("/api/request_reapproval", methods=["POST"])
 @with_db_connection
 def api_request_reapproval(cursor, conn):
