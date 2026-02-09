@@ -1,1 +1,12 @@
 2026-02-09 15:57:56,726 - INFO - Requested: GET http://10.65.51.44:5001/api/excel_data?table=tbl_livestock_census&upload_id=2&only_rejected=true from 10.65.51.44
+2026-02-09 15:58:00,400 - INFO - Requested: POST http://10.65.51.44:5001/api/update_excel_cell from 10.65.51.44
+2026-02-09 15:58:01,370 - INFO - Requested: POST http://10.65.51.44:5001/api/request_reapproval from 10.65.51.44
+2026-02-09 15:58:02,597 - INFO - Requested: GET http://10.65.51.44:5001/user_dashboard from 10.65.51.44
+2026-02-09 15:58:02,607 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
+2026-02-09 15:58:02,610 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
+2026-02-09 15:58:02,616 - INFO - Requested: GET http://10.65.51.44:5001/api/transaction_tables from 10.65.51.44
+2026-02-09 15:58:02,631 - INFO - Requested: GET http://10.65.51.44:5001/uploads?department=Animal%20Husbandry%20and%20Animal%20Welfare from 10.65.51.44
+2026-02-09 15:58:07,543 - INFO - Requested: GET http://10.65.51.44:5001/approver_dashboard from 10.65.51.44
+2026-02-09 15:58:07,549 - INFO - Requested: GET http://10.65.51.44:5001/static/images/py_logo.jpeg from 10.65.51.44
+2026-02-09 15:58:07,551 - INFO - Requested: GET http://10.65.51.44:5001/api/current_user from 10.65.51.44
+2026-02-09 15:58:07,558 - INFO - Requested: GET http://10.65.51.44:5001/api/pending_uploads from 10.65.51.44
