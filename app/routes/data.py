@@ -346,26 +346,78 @@ def upload_accident_register(cursor, conn):
 @data_bp.route("/download_excel")
 @with_db_connection
 def download_excel(cursor, conn):
-    """Download table data as Excel (hide selected columns)."""
+    """Download table data as Excel with FK names instead of IDs."""
+
     table = request.args.get("table")
     filename = request.args.get("filename", f"{table}.xlsx")
 
-    # ✅ columns to hide sent from frontend
     hide_cols = request.args.get("hide_cols", "")
     hide_cols = [c.strip() for c in hide_cols.split(",") if c.strip()]
 
     try:
-        cursor.execute(f"SELECT * FROM `{table}`")
+        # -----------------------------------
+        # build SELECT with FK joins
+        # -----------------------------------
+        select_parts = [f"t.*"]
+        joins = []
+
+        for fk_col, cfg in LOOKUP_CONFIG.items():
+
+            master_table, name_col, id_col = cfg
+
+            # check FK column exists in this table
+            cursor.execute(f"SHOW COLUMNS FROM `{table}` LIKE %s", (fk_col,))
+            if not cursor.fetchone():
+                continue
+
+            alias = f"m_{fk_col}"
+
+            joins.append(
+                f"LEFT JOIN `{master_table}` {alias} "
+                f"ON t.`{fk_col}` = {alias}.`{id_col}`"
+            )
+
+            select_parts.append(
+                f"{alias}.`{name_col}` AS `{fk_col}_name`"
+            )
+
+        sql = f"""
+            SELECT {", ".join(select_parts)}
+            FROM `{table}` t
+            {' '.join(joins)}
+        """
+
+        cursor.execute(sql)
         rows = cursor.fetchall()
         df = pd.DataFrame(rows)
 
-        # ✅ Drop hidden columns safely
+        # -----------------------------------
+        # replace fk_id with fk_name
+        # -----------------------------------
+        for fk_col in LOOKUP_CONFIG.keys():
+            name_col = fk_col + "_name"
+
+            if name_col in df.columns:
+                df[fk_col] = df[name_col]
+                df.drop(columns=[name_col], inplace=True)
+
+        # -----------------------------------
+        # hide audit columns
+        # -----------------------------------
         if not df.empty and hide_cols:
             df.drop(columns=[c for c in hide_cols if c in df.columns], inplace=True)
+        df.columns = [
+            c.replace("_", " ").title().replace("Id", "ID")
+            for c in df.columns
+        ]
 
+        # -----------------------------------
+        # export excel
+        # -----------------------------------
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             df.to_excel(writer, index=False)
+
         output.seek(0)
 
         return send_file(
@@ -374,11 +426,17 @@ def download_excel(cursor, conn):
             download_name=filename,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
     except Exception as e:
         tb = traceback.format_exc()
+        print(tb)
+
         config_obj = current_app.config.get("CONFIG_OBJ")
-        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        if config_obj:
+            log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+
         return jsonify({"error": str(e)}), 500
+
 
 
 

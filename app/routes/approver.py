@@ -48,26 +48,47 @@ def debug_session():
 @approver_bp.route("/api/pending_uploads")
 @with_db_connection
 def get_pending_uploads(cursor, conn):
-    """Get all uploads for approver - FIXED."""
+    """Get uploads for approver — department filtered."""
     try:
         if "username" not in session:
             return jsonify({"error": "Not authenticated"}), 401
 
-        if session.get("role") not in ["approver", "admin"]:
+        role = session.get("role")
+        department = session.get("department")
+
+        if role not in ["approver", "admin"]:
             return jsonify({"error": "Unauthorized"}), 403
 
-        cursor.execute("""
-            SELECT 
-                id,
-                filename,
-                table_name,
-                uploaded_by,
-                department,
-                uploaded_on,
-                CAST(status_ AS SIGNED) as status_
-            FROM excel_uploads
-            ORDER BY uploaded_on DESC
-        """)
+        #  ADMIN → see all departments
+        if role == "admin":
+            cursor.execute("""
+                SELECT 
+                    id,
+                    filename,
+                    table_name,
+                    uploaded_by,
+                    department,
+                    uploaded_on,
+                    CAST(status_ AS SIGNED) as status_
+                FROM excel_uploads
+                ORDER BY uploaded_on DESC
+            """)
+        else:
+            #  APPROVER → only their department
+            cursor.execute("""
+                SELECT 
+                    id,
+                    filename,
+                    table_name,
+                    uploaded_by,
+                    department,
+                    uploaded_on,
+                    CAST(status_ AS SIGNED) as status_
+                FROM excel_uploads
+                WHERE department = %s
+                ORDER BY uploaded_on DESC
+            """, (department,))
+
         uploads = cursor.fetchall()
 
         for upload in uploads:

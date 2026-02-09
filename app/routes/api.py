@@ -721,11 +721,13 @@ def api_can_edit_upload(cursor, conn):
 def api_update_excel_cell(cursor, conn):
     """
     Update single cell (inline editing)
-    RULES:
-    - USER can edit ONLY rejected rows (status_=0)
-    - USER cannot update is_approved/status_ columns
+
+    RULES (FINAL):
+    - USER can edit ONLY rejected rows → is_approved = 0
+    - USER cannot update is_approved column
     - APPROVER/ADMIN can edit normal data columns
     """
+
     data = request.get_json(force=True)
     table = data.get("table")
     row_id = data.get("id")
@@ -739,12 +741,12 @@ def api_update_excel_cell(cursor, conn):
         return jsonify({"error": "Permission denied"}), 403
 
     try:
-        # detect primary key
+        # ✅ detect primary key
         cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name='PRIMARY'")
         pk_res = cursor.fetchone()
         pk_col = pk_res["Column_name"] if pk_res else "id"
 
-        # validate column exists
+        # ✅ validate column exists
         cursor.execute(f"SHOW COLUMNS FROM `{table}`")
         cols_info = cursor.fetchall()
         col_names = [c["Field"] for c in cols_info]
@@ -755,48 +757,66 @@ def api_update_excel_cell(cursor, conn):
         if column == pk_col or is_audit_column(column):
             return jsonify({"error": "Cannot edit this column"}), 400
 
-        # ✅ USER restrictions
+        # =========================
+        # ✅ USER RESTRICTIONS
+        # =========================
         if session.get("role") == "user":
-            # user cannot edit approval/status columns
-            if column in ["status_", "is_approved"]:
+
+            # ❌ user cannot change approval column
+            if column == "is_approved":
                 return jsonify({"error": "You cannot change approval status"}), 403
 
-            # user can edit only rejected rows
-            cursor.execute(f"SELECT status_ FROM `{table}` WHERE `{pk_col}`=%s", (row_id,))
+            # ✅ check row approval state
+            cursor.execute(
+                f"SELECT is_approved FROM `{table}` WHERE `{pk_col}`=%s",
+                (row_id,)
+            )
             rr = cursor.fetchone()
+
             if not rr:
                 return jsonify({"error": "Row not found"}), 404
 
-            if rr.get("status_") != 0:
-                return jsonify({"error": "Only rejected rows can be edited"}), 403
+            # ✅ ONLY rejected rows editable
+            if rr.get("is_approved") != 0:
+                return jsonify({
+                    "error": "Only rejected rows can be edited"
+                }), 403
 
-        # ✅ Approver/Admin: normalize is_approved if they edit it (optional)
-        if column == "is_approved":
-            if value in [None, "", "null", "NULL"]:
-                value = None
-            elif value in [True, "true", "True", 1, "1"]:
-                value = 1
-            elif value in [False, "false", "False", 0, "0"]:
-                value = 0
-            else:
-                value = None
-
-        # FK support
+        # =========================
+        # ✅ FK conversion
+        # =========================
         if column == "year_id":
             value = resolve_year(cursor, value)
+
         elif column.endswith("_id"):
             value = fk_value_to_id(cursor, column, value, LOOKUP_CONFIG)
 
-        # update cell
-        sql = f"UPDATE `{table}` SET `{column}`=%s WHERE `{pk_col}`=%s"
-        cursor.execute(sql, (value, row_id))
+        # =========================
+        # ✅ update cell
+        # =========================
+        sql = f"""
+            UPDATE `{table}`
+            SET `{column}`=%s,
+                updated_by=%s,
+                updated_date=NOW()
+            WHERE `{pk_col}`=%s
+        """
+        cursor.execute(sql, (value, session.get("username"), row_id))
         conn.commit()
 
         return jsonify({"message": "Cell updated"})
+
     except Exception as e:
         tb = traceback.format_exc()
         config_obj = current_app.config.get("CONFIG_OBJ")
-        log_error_db(session.get("username"), request.path, str(e), tb, config_obj)
+        if config_obj:
+            log_error_db(
+                session.get("username"),
+                request.path,
+                str(e),
+                tb,
+                config_obj
+            )
         conn.rollback()
         return jsonify({"error": str(e)}), 500
 
@@ -856,11 +876,7 @@ def api_set_row_status(cursor, conn):
 @api_bp.route("/api/request_reapproval", methods=["POST"])
 @with_db_connection
 def api_request_reapproval(cursor, conn):
-    """
-    User requests reapproval after fixing rejected rows.
-    - Changes rejected rows (status_=0) -> pending (NULL)
-    - Sets excel_uploads.status_ = NULL
-    """
+
     if "username" not in session:
         return jsonify({"error": "Not logged in"}), 401
 
@@ -872,9 +888,9 @@ def api_request_reapproval(cursor, conn):
         return jsonify({"error": "Missing upload_id/table"}), 400
 
     try:
-        # ✅ verify upload ownership (user can request only their upload)
+        # verify upload
         cursor.execute("""
-            SELECT id, uploaded_by, CAST(status_ AS SIGNED) as status_
+            SELECT id, uploaded_by, status_
             FROM excel_uploads
             WHERE id=%s
         """, (upload_id,))
@@ -883,32 +899,37 @@ def api_request_reapproval(cursor, conn):
         if not up:
             return jsonify({"error": "Upload not found"}), 404
 
-        if session.get("role") == "user" and up.get("uploaded_by") != session.get("username"):
-            return jsonify({"error": "You can request reapproval only for your upload"}), 403
+        if session.get("role") == "user" and up["uploaded_by"] != session["username"]:
+            return jsonify({"error": "Not your upload"}), 403
 
-        if up.get("status_") != 0:
-            return jsonify({"error": "Reapproval allowed only for rejected uploads"}), 400
+        if up["status_"] != 0:
+            return jsonify({"error": "Only rejected uploads can request reapproval"}), 400
 
-        # ✅ set rejected rows -> pending
+        # ✅ reset rejected rows → pending
         cursor.execute(f"""
             UPDATE `{table}`
-            SET status_=NULL, is_approved=NULL, updated_by=%s, updated_date=NOW()
-            WHERE upload_id=%s AND status_=0
-        """, (session.get("username"), upload_id))
+            SET is_approved=NULL,
+                updated_by=%s,
+                updated_date=NOW()
+            WHERE upload_id=%s AND is_approved=0
+        """, (session["username"], upload_id))
 
-        # ✅ set file to pending
+        # ✅ reset upload → pending
         cursor.execute("""
             UPDATE excel_uploads
-            SET status_=NULL, updated_by=%s, updated_date=NOW()
+            SET status_=NULL,
+                updated_by=%s,
+                updated_date=NOW()
             WHERE id=%s
-        """, (session.get("username"), upload_id))
+        """, (session["username"], upload_id))
 
         conn.commit()
-        return jsonify({"message": "Re-approval requested. Upload moved to Pending."})
+        return jsonify({"message": "Reapproval requested"})
+
     except Exception as e:
         conn.rollback()
         return jsonify({"error": str(e)}), 500
-    
+
 
 
 @api_bp.route("/api/check_upload_review_status")
